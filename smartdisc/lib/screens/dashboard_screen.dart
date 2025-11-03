@@ -1,62 +1,177 @@
 import 'package:flutter/material.dart';
-import '../services/auth_service.dart';
+import '../styles/app_colors.dart';
+import '../styles/app_font.dart';
+import '../widgets/stat_card.dart';
+import '../services/api_service.dart';
+import '../models/wurf.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
-
   @override
   State<DashboardScreen> createState() => _DashboardScreenState();
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
-  final AuthService _auth = AuthService();
-  String _emailLabel = '';
+  final api = ApiService();
+
+  // Ten selectable discs
+  final List<String> discs =
+      List.generate(10, (i) => 'DISC-${(i + 1).toString().padLeft(2, '0')}');
+  String selectedDisc = 'DISC-01';
+
+  late Future<List<Wurf>> _wurfeF;
 
   @override
   void initState() {
     super.initState();
-    _load();
+    _reload();
   }
 
-  Future<void> _load() async {
-    final String? email = await _auth.currentUserEmail();
-    if (mounted) {
-      setState(() { _emailLabel = email ?? ''; });
-    }
+  void _reload() {
+    _wurfeF = api.getWuerfe(limit: 50, scheibeId: selectedDisc);
+    setState(() {});
   }
 
-  Future<void> _logout() async {
-    await _auth.logout();
-    if (mounted) {
-      Navigator.of(context).pushReplacementNamed('/login');
-    }
-  }
+  // Helpers: convert units if you like
+  double _mpsToMph(num? v) => v == null ? 0 : v * 2.23693629;
+  double _mToFt(num? m) => m == null ? 0 : m * 3.2808399;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Dashboard'),
+        title: const Text('SmartDisc'),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.logout),
-            tooltip: 'Logout',
-            onPressed: _logout,
-          ),
+          IconButton(onPressed: _reload, icon: const Icon(Icons.refresh)),
         ],
       ),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text('Willkommen ${_emailLabel.isEmpty ? '' : _emailLabel}'),
-            const SizedBox(height: 12),
-            const Text('Hier entsteht das zentrale Dashboard.'),
-          ],
-        ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _reload,
+        icon: const Icon(Icons.sync),
+        label: const Text('Reload'),
+      ),
+      body: FutureBuilder<List<Wurf>>(
+        future: _wurfeF,
+        builder: (c, s) {
+          if (s.connectionState != ConnectionState.done) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          final items = s.data ?? [];
+
+          // Compute KPIs for the selected disc
+          final last10 = items.take(10).toList();
+          final avgSpeedMps = last10.isEmpty
+              ? 0
+              : last10
+                      .map((w) => w.geschwindigkeit ?? 0)
+                      .fold<double>(0, (a, b) => a + b) /
+                  last10.length;
+          final avgSpeedMph = _mpsToMph(avgSpeedMps);
+
+          final maxDistM = items.fold<double>(
+              0, (mx, w) => (w.entfernung ?? 0) > mx ? (w.entfernung ?? 0) : mx);
+          final maxDistFt = _mToFt(maxDistM);
+
+          // interpret geschwindigkeit as spin rate (rps) for demo
+          final avgRps = last10.isEmpty
+              ? 0
+              : last10
+                      .map((w) => w.geschwindigkeit ?? 0)
+                      .fold<double>(0, (a, b) => a + b) /
+                  last10.length;
+          final avgRpm = avgRps * 60.0;
+
+          final totalThrows = items.length;
+
+          return ListView(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
+            children: [
+              // Disc selector
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  color: AppColors.surface,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.textSecondary.withOpacity(0.15)),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      value: selectedDisc,
+                      isExpanded: true,
+                      borderRadius: BorderRadius.circular(12),
+                      items: discs
+                          .map((d) => DropdownMenuItem(value: d, child: Text(d)))
+                          .toList(),
+                      onChanged: (v) {
+                        if (v == null) return;
+                        setState(() => selectedDisc = v);
+                        _reload();
+                      },
+                    ),
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 16),
+
+              // KPI grid
+              GridView.count(
+                physics: const NeverScrollableScrollPhysics(),
+                shrinkWrap: true,
+                crossAxisCount: 2,
+                mainAxisSpacing: 12,
+                crossAxisSpacing: 12,
+                childAspectRatio: 1.45,
+                children: [
+                  StatCard(
+                    icon: Icons.flash_on_rounded,
+                    label: 'Avg Speed',
+                    value: '${avgSpeedMph.toStringAsFixed(1)} mph',
+                    sublabel: 'Last 10 throws',
+                  ),
+                  StatCard(
+                    icon: Icons.place_rounded,
+                    label: 'Max Distance',
+                    value: '${maxDistFt.toStringAsFixed(0)} ft',
+                    sublabel: 'Personal best',
+                  ),
+                  StatCard(
+                    icon: Icons.refresh_rounded,
+                    label: 'Avg Rotation',
+                    value: '${avgRps.toStringAsFixed(2)} rps\n${avgRpm.toStringAsFixed(0)} rpm',
+                    sublabel: 'Spin rate',
+                  ),
+                  StatCard(
+                    icon: Icons.timelapse_rounded,
+                    label: 'Total Throws',
+                    value: '$totalThrows',
+                    sublabel: 'All time',
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 24),
+              Text('Latest throws', style: AppFont.headline),
+
+              const SizedBox(height: 8),
+              if (items.isEmpty)
+                const ListTile(title: Text('No throws yet'))
+              else
+                ...items.take(10).map((w) => Card(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: ListTile(
+                        title: Text('Disc: ${w.scheibeId ?? '-'} • v=${w.geschwindigkeit ?? '-'}'),
+                        subtitle: Text('d=${w.entfernung ?? '-'} m   •   ${w.erstelltAm ?? ''}'),
+                        trailing: Text(w.id),
+                      ),
+                    )),
+            ],
+          );
+        },
       ),
     );
   }
 }
-
-
