@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:model_viewer_plus/model_viewer_plus.dart';
 import '../styles/app_colors.dart';
 import '../styles/app_font.dart';
 import '../widgets/stat_card.dart';
@@ -86,6 +87,30 @@ class _DashboardScreenState extends State<DashboardScreen> {
           return ListView(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
             children: [
+              // 3D Frisbee preview directly under the header
+              const ListTile(title: Text('3D Preview', style: TextStyle(fontWeight: FontWeight.w600))),
+              SizedBox(
+                height: 320,
+                child: Card(
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  clipBehavior: Clip.antiAlias,
+                  color: AppColors.surface,
+                  child: ModelViewer(
+                    src: 'assets/models/SmartDisc.glb',
+                    alt: 'Frisbee model',
+                    ar: false,
+                    autoRotate: true,
+                    cameraControls: true,
+                    // Slightly tilted camera to show the disc at an angle
+                    cameraOrbit: '0deg 65deg 105%',
+                    exposure: 1.0,
+                    shadowIntensity: 0.0,
+                    disableZoom: false,
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 16),
               // Disc selector
               DecoratedBox(
                 decoration: BoxDecoration(
