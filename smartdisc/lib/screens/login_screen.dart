@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
+import '../styles/app_colors.dart';
+import '../styles/app_font.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -48,66 +50,143 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Login')),
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 420),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  TextFormField(
-                    controller: _emailController,
-                    decoration: const InputDecoration(labelText: 'E-Mail'),
-                    keyboardType: TextInputType.emailAddress,
-                    validator: (value) {
-                      if (value == null || value.trim().isEmpty) {
-                        return 'Bitte E-Mail eingeben';
-                      }
-                      if (!value.contains('@')) {
-                        return 'Ungültige E-Mail';
-                      }
-                      return null;
-                    },
+      body: SafeArea(
+        child: Container(
+          width: double.infinity,
+          color: AppColors.background,
+          child: Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 32),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 420),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      const _Header(),
+                      const SizedBox(height: 32),
+                      Text('Login', style: AppFont.headline),
+                      const SizedBox(height: 28),
+                      TextFormField(
+                        controller: _emailController,
+                        keyboardType: TextInputType.emailAddress,
+                        decoration: const InputDecoration(
+                          hintText: 'email@domain.com',
+                        ),
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'Bitte E-Mail eingeben';
+                          }
+                          if (!value.contains('@')) {
+                            return 'Ungültige E-Mail';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _passwordController,
+                        decoration: const InputDecoration(
+                          hintText: 'Passwort',
+                        ),
+                        obscureText: true,
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Bitte Passwort eingeben';
+                          }
+                          if (value.length < 6) {
+                            return 'Mindestens 6 Zeichen';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 24),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: _isSubmitting ? null : _submit,
+                          child: _isSubmitting
+                              ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                )
+                              : const Text('Continue'),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      Row(
+                        children: const [
+                          Expanded(child: Divider(color: AppColors.border)),
+                          SizedBox(width: 12),
+                          Text('or', style: AppFont.caption),
+                          SizedBox(width: 12),
+                          Expanded(child: Divider(color: AppColors.border)),
+                        ],
+                      ),
+                      const SizedBox(height: 20),
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton(
+                          onPressed: _handleCreateAccount,
+                          child: const Text('Create Account'),
+                        ),
+                      ),
+                      const SizedBox(height: 28),
+                      Text.rich(
+                        TextSpan(
+                          style: AppFont.caption,
+                          children: const [
+                            TextSpan(text: 'By clicking continue, you agree to our '),
+                            TextSpan(text: 'Terms of Service', style: AppFont.link),
+                            TextSpan(text: ' and '),
+                            TextSpan(text: 'Privacy Policy', style: AppFont.link),
+                            TextSpan(text: '.'),
+                          ],
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: _passwordController,
-                    decoration: const InputDecoration(labelText: 'Passwort'),
-                    obscureText: true,
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Bitte Passwort eingeben';
-                      }
-                      if (value.length < 6) {
-                        return 'Mindestens 6 Zeichen';
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 20),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: _isSubmitting ? null : _submit,
-                      child: _isSubmitting
-                          ? const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Text('Einloggen'),
-                    ),
-                  ),
-                ],
+                ),
               ),
             ),
           ),
         ),
       ),
+    );
+  }
+
+  void _handleCreateAccount() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Account creation folgt in Kürze.')),
+    );
+  }
+}
+
+class _Header extends StatelessWidget {
+  const _Header({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Container(
+          width: 120,
+          height: 120,
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            shape: BoxShape.circle,
+            border: Border.all(color: AppColors.border, width: 1.5),
+          ),
+          child: const Center(
+            child: Icon(Icons.sports_baseball, size: 56, color: AppColors.primary),
+          ),
+        ),
+        const SizedBox(height: 18),
+        const Text('SMART DISC', style: AppFont.logoMark),
+      ],
     );
   }
 }

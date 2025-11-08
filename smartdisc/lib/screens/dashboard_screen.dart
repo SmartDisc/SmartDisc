@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:model_viewer_plus/model_viewer_plus.dart';
+import '../services/api_service.dart';
+import '../services/auth_service.dart';
 import '../styles/app_colors.dart';
 import '../styles/app_font.dart';
 import '../widgets/stat_card.dart';
-import '../services/api_service.dart';
 import '../models/wurf.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -14,6 +15,7 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen> {
   final api = ApiService();
+  final AuthService _auth = AuthService();
 
   // Ten selectable discs
   final List<String> discs =
@@ -33,6 +35,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
     setState(() {});
   }
 
+  Future<void> _logout() async {
+    await _auth.logout();
+    if (!mounted) return;
+    Navigator.of(context).pushReplacementNamed('/login');
+  }
+
   // Helpers: convert units if you like
   double _mpsToMph(num? v) => v == null ? 0 : v * 2.23693629;
   double _mToFt(num? m) => m == null ? 0 : m * 3.2808399;
@@ -44,6 +52,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
         title: const Text('SmartDisc'),
         actions: [
           IconButton(onPressed: _reload, icon: const Icon(Icons.refresh)),
+          IconButton(
+            tooltip: 'Logout',
+            onPressed: _logout,
+            icon: const Icon(Icons.logout_rounded),
+          ),
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
@@ -88,25 +101,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
             children: [
               // 3D Frisbee preview directly under the header
-              const ListTile(title: Text('3D Preview', style: TextStyle(fontWeight: FontWeight.w600))),
-              SizedBox(
+              Container(
                 height: 320,
-                child: Card(
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  clipBehavior: Clip.antiAlias,
-                  color: AppColors.surface,
-                  child: ModelViewer(
-                    src: 'assets/models/SmartDisc.glb',
-                    alt: 'Frisbee model',
-                    ar: false,
-                    autoRotate: true,
-                    cameraControls: true,
-                    // Slightly tilted camera to show the disc at an angle
-                    cameraOrbit: '0deg 65deg 105%',
-                    exposure: 1.0,
-                    shadowIntensity: 0.0,
-                    disableZoom: false,
-                  ),
+                decoration: BoxDecoration(
+                  color: AppColors.background,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: ModelViewer(
+                  src: 'assets/models/SmartDisc.glb',
+                  alt: 'Frisbee model',
+                  ar: false,
+                  autoRotate: true,
+                  cameraControls: true,
+                  cameraOrbit: '0deg 65deg 105%',
+                  exposure: 1.0,
+                  shadowIntensity: 0.0,
+                  disableZoom: false,
+                  backgroundColor: AppColors.background,
+                  style: 'background-color: #F2E4D6; filter: grayscale(100%) brightness(0.6);',
                 ),
               ),
 
