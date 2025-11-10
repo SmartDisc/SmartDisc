@@ -101,25 +101,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
             children: [
               // 3D Frisbee preview directly under the header
-              Container(
+              SizedBox(
                 height: 320,
-                decoration: BoxDecoration(
-                  color: AppColors.background,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                clipBehavior: Clip.antiAlias,
-                child: ModelViewer(
-                  src: 'assets/models/SmartDisc.glb',
-                  alt: 'Frisbee model',
-                  ar: false,
-                  autoRotate: true,
-                  cameraControls: true,
-                  cameraOrbit: '0deg 65deg 105%',
-                  exposure: 1.0,
-                  shadowIntensity: 0.0,
-                  disableZoom: false,
-                  backgroundColor: AppColors.background,
-                  style: 'background-color: #F2E4D6; filter: grayscale(100%) brightness(0.6);',
+                child: Card(
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  clipBehavior: Clip.antiAlias,
+                  child: const ModelViewer(
+                    src: 'assets/models/SmartDisc.glb',
+                    alt: 'Frisbee model',
+                    ar: false,
+                    autoRotate: true,
+                    cameraControls: true,
+                    cameraOrbit: '0deg 65deg 105%',
+                    exposure: 1.0,
+                    shadowIntensity: 0.0,
+                    disableZoom: false,
+                  ),
                 ),
               ),
 
