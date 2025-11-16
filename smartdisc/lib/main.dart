@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'screens/login_screen.dart';
 import 'screens/app_shell.dart';
+import 'screens/throw_list_example.dart';
 import 'services/auth_service.dart';
 import 'styles/app.theme.dart';
 
@@ -25,6 +26,7 @@ class MyApp extends StatelessWidget {
         '/history': (context) => const AppShell(initialIndex: 2),
         '/discs': (context) => const AppShell(initialIndex: 3),
         '/profile': (context) => const AppShell(initialIndex: 4),
+        '/throws': (context) => const ThrowListExample(),
       },
       home: const _AuthGate(),
     );
