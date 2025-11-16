@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'screens/login_screen.dart';
-import 'screens/dashboard_screen.dart';
+import 'screens/app_shell.dart';
 import 'services/auth_service.dart';
 import 'styles/app.theme.dart';
 
@@ -20,7 +20,10 @@ class MyApp extends StatelessWidget {
       theme: appTheme,
       routes: {
         '/login': (context) => const LoginScreen(),
-        '/dashboard': (context) => const DashboardScreen(),
+        '/dashboard': (context) => const AppShell(initialIndex: 0),
+        '/analysis': (context) => const AppShell(initialIndex: 1),
+        '/history': (context) => const AppShell(initialIndex: 2),
+        '/profile': (context) => const AppShell(initialIndex: 3),
       },
       home: const _AuthGate(),
     );
@@ -28,7 +31,7 @@ class MyApp extends StatelessWidget {
 }
 
 class _AuthGate extends StatefulWidget {
-  const _AuthGate({super.key});
+  const _AuthGate();
 
   @override
   State<_AuthGate> createState() => _AuthGateState();
@@ -62,6 +65,6 @@ class _AuthGateState extends State<_AuthGate> {
         body: Center(child: CircularProgressIndicator()),
       );
     }
-    return _loggedIn ? const DashboardScreen() : const LoginScreen();
+    return _loggedIn ? const AppShell() : const LoginScreen();
   }
 }
