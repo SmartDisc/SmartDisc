@@ -162,27 +162,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
               // KPI grid — responsive columns and aspect ratio based on available width
               LayoutBuilder(builder: (ctx, constraints) {
-                final w = constraints.maxWidth;
-                // Choose columns based on width (phones -> 1-2 cols, tablets -> more)
-                final crossAxisCount = w > 900
-                    ? 4
-                    : w > 600
-                        ? 3
-                        : w > 420
-                            ? 2
-                            : 1;
-                // Target approximate card height in px; aspect ratio computed from available width
-                const targetCardHeight = 120.0;
-                final childAspectRatio = (w / crossAxisCount) / targetCardHeight;
-
+                // final w = constraints.maxWidth; // unused with maxCrossAxisExtent grid
+                // Use a max extent grid so each card gets a reasonable minimum width
+                // which prevents the grid from forcing a very small card height.
+                const maxExtent = 360.0;
                 return GridView(
                   physics: const NeverScrollableScrollPhysics(),
                   shrinkWrap: true,
-                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: crossAxisCount,
+                  gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                    maxCrossAxisExtent: maxExtent,
                     mainAxisSpacing: 12,
                     crossAxisSpacing: 12,
-                    childAspectRatio: childAspectRatio,
+                    childAspectRatio: 1.25,
                   ),
                   children: [
                     StatCard(

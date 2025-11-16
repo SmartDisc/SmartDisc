@@ -22,7 +22,8 @@ class StatCard extends StatelessWidget {
       elevation: 0,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Container(
-        padding: const EdgeInsets.all(16),
+        constraints: const BoxConstraints(minHeight: 140),
+        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(16),
           gradient: LinearGradient(
@@ -39,11 +40,11 @@ class StatCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             CircleAvatar(
-              radius: 18,
+              radius: 16,
               backgroundColor: AppColors.primary.withAlpha((0.12 * 255).round()),
               child: Icon(icon, color: AppColors.primary),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 10),
             Text(label, style: AppFont.statLabel),
             const SizedBox(height: 4),
             // Allow the value to wrap nicely and avoid overflow inside the card
