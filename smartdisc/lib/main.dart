@@ -23,7 +23,8 @@ class MyApp extends StatelessWidget {
         '/dashboard': (context) => const AppShell(initialIndex: 0),
         '/analysis': (context) => const AppShell(initialIndex: 1),
         '/history': (context) => const AppShell(initialIndex: 2),
-        '/profile': (context) => const AppShell(initialIndex: 3),
+        '/discs': (context) => const AppShell(initialIndex: 3),
+        '/profile': (context) => const AppShell(initialIndex: 4),
       },
       home: const _AuthGate(),
     );

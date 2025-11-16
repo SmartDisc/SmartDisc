@@ -6,7 +6,8 @@ import 'profile_screen.dart';
 import 'discs_screen.dart';
 
 class AppShell extends StatefulWidget {
-  /// initialIndex selects which tab to show (0 = dashboard, 1 = analysis, 2 = history, 3 = profile)
+  /// initialIndex selects which tab to show
+  /// 0 = dashboard, 1 = analysis, 2 = history, 3 = discs, 4 = profile
   const AppShell({super.key, this.initialIndex = 0});
 
   final int initialIndex;
@@ -27,8 +28,8 @@ class _AppShellState extends State<AppShell> {
       const DashboardScreen(),
       const AnalysisScreen(),
       const HistoryScreen(),
-      const ProfileScreen(),
       const DiscsScreen(),
+      const ProfileScreen(),
     ];
   }
 
@@ -54,8 +55,8 @@ class _AppShellState extends State<AppShell> {
           BottomNavigationBarItem(icon: Icon(Icons.dashboard), label: 'Dashboard'),
           BottomNavigationBarItem(icon: Icon(Icons.analytics), label: 'Analysis'),
           BottomNavigationBarItem(icon: Icon(Icons.history_rounded), label: 'History'),
-          BottomNavigationBarItem(icon: Icon(Icons.person_rounded), label: 'Profile'),
           BottomNavigationBarItem(icon: Icon(Icons.storage_rounded), label: 'Discs'),
+          BottomNavigationBarItem(icon: Icon(Icons.person_rounded), label: 'Profile'),
         ],
       ),
     );
