@@ -35,17 +35,25 @@ class StatCard extends StatelessWidget {
           ),
         ),
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             CircleAvatar(
               radius: 18,
-              backgroundColor: AppColors.primary.withOpacity(0.12),
+              backgroundColor: AppColors.primary.withAlpha((0.12 * 255).round()),
               child: Icon(icon, color: AppColors.primary),
             ),
             const SizedBox(height: 12),
             Text(label, style: AppFont.statLabel),
             const SizedBox(height: 4),
-            Text(value, style: AppFont.statValue),
+            // Allow the value to wrap nicely and avoid overflow inside the card
+            Text(
+              value,
+              style: AppFont.statValue,
+              softWrap: true,
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+            ),
             if (sublabel.isNotEmpty) ...[
               const SizedBox(height: 6),
               Text(sublabel, style: AppFont.subheadline),

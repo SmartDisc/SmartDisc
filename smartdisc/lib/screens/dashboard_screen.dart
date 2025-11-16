@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:math' as math;
 import 'package:model_viewer_plus/model_viewer_plus.dart';
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
@@ -72,6 +73,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
           }
           final items = s.data ?? [];
 
+          // Responsive horizontal padding so narrow phones don't look cramped
+          final screenW = MediaQuery.of(context).size.width;
+          final horizontalPadding = screenW < 380 ? 12.0 : 16.0;
+
           // Compute KPIs for the selected disc
           final last10 = items.take(10).toList();
           final avgSpeedMps = last10.isEmpty
@@ -98,27 +103,32 @@ class _DashboardScreenState extends State<DashboardScreen> {
           final totalThrows = items.length;
 
           return ListView(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
+            padding: EdgeInsets.fromLTRB(horizontalPadding, 16, horizontalPadding, 100),
             children: [
-              // 3D Frisbee preview directly under the header
-              SizedBox(
-                height: 320,
-                child: Card(
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  clipBehavior: Clip.antiAlias,
-                  child: const ModelViewer(
-                    src: 'assets/models/SmartDisc.glb',
-                    alt: 'Frisbee model',
-                    ar: false,
-                    autoRotate: true,
-                    cameraControls: true,
-                    cameraOrbit: '0deg 65deg 105%',
-                    exposure: 1.0,
-                    shadowIntensity: 0.0,
-                    disableZoom: false,
+              // 3D Frisbee preview directly under the header — make height responsive
+              LayoutBuilder(builder: (ctx, constraints) {
+                // Limit the preview to a reasonable height but allow it to scale with width
+                final maxW = constraints.maxWidth;
+                final computedHeight = math.min(320, maxW * 0.55).toDouble();
+                return SizedBox(
+                  height: computedHeight,
+                  child: Card(
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    clipBehavior: Clip.antiAlias,
+                    child: const ModelViewer(
+                      src: 'assets/models/SmartDisc.glb',
+                      alt: 'Frisbee model',
+                      ar: false,
+                      autoRotate: true,
+                      cameraControls: true,
+                      cameraOrbit: '0deg 65deg 105%',
+                      exposure: 1.0,
+                      shadowIntensity: 0.0,
+                      disableZoom: false,
+                    ),
                   ),
-                ),
-              ),
+                );
+              }),
 
               const SizedBox(height: 16),
               // Disc selector
@@ -126,7 +136,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 decoration: BoxDecoration(
                   color: AppColors.surface,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppColors.textSecondary.withOpacity(0.15)),
+                  border: Border.all(color: AppColors.textSecondary.withAlpha((0.15 * 255).round())),
                 ),
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -150,41 +160,58 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
               const SizedBox(height: 16),
 
-              // KPI grid
-              GridView.count(
-                physics: const NeverScrollableScrollPhysics(),
-                shrinkWrap: true,
-                crossAxisCount: 2,
-                mainAxisSpacing: 12,
-                crossAxisSpacing: 12,
-                childAspectRatio: 1.45,
-                children: [
-                  StatCard(
-                    icon: Icons.flash_on_rounded,
-                    label: 'Avg Speed',
-                    value: '${avgSpeedMph.toStringAsFixed(1)} mph',
-                    sublabel: 'Last 10 throws',
+              // KPI grid — responsive columns and aspect ratio based on available width
+              LayoutBuilder(builder: (ctx, constraints) {
+                final w = constraints.maxWidth;
+                // Choose columns based on width (phones -> 1-2 cols, tablets -> more)
+                final crossAxisCount = w > 900
+                    ? 4
+                    : w > 600
+                        ? 3
+                        : w > 420
+                            ? 2
+                            : 1;
+                // Target approximate card height in px; aspect ratio computed from available width
+                const targetCardHeight = 120.0;
+                final childAspectRatio = (w / crossAxisCount) / targetCardHeight;
+
+                return GridView(
+                  physics: const NeverScrollableScrollPhysics(),
+                  shrinkWrap: true,
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: crossAxisCount,
+                    mainAxisSpacing: 12,
+                    crossAxisSpacing: 12,
+                    childAspectRatio: childAspectRatio,
                   ),
-                  StatCard(
-                    icon: Icons.place_rounded,
-                    label: 'Max Distance',
-                    value: '${maxDistFt.toStringAsFixed(0)} ft',
-                    sublabel: 'Personal best',
-                  ),
-                  StatCard(
-                    icon: Icons.refresh_rounded,
-                    label: 'Avg Rotation',
-                    value: '${avgRps.toStringAsFixed(2)} rps\n${avgRpm.toStringAsFixed(0)} rpm',
-                    sublabel: 'Spin rate',
-                  ),
-                  StatCard(
-                    icon: Icons.timelapse_rounded,
-                    label: 'Total Throws',
-                    value: '$totalThrows',
-                    sublabel: 'All time',
-                  ),
-                ],
-              ),
+                  children: [
+                    StatCard(
+                      icon: Icons.flash_on_rounded,
+                      label: 'Avg Speed',
+                      value: '${avgSpeedMph.toStringAsFixed(1)} mph',
+                      sublabel: 'Last 10 throws',
+                    ),
+                    StatCard(
+                      icon: Icons.place_rounded,
+                      label: 'Max Distance',
+                      value: '${maxDistFt.toStringAsFixed(0)} ft',
+                      sublabel: 'Personal best',
+                    ),
+                    StatCard(
+                      icon: Icons.refresh_rounded,
+                      label: 'Avg Rotation',
+                      value: '${avgRps.toStringAsFixed(2)} rps\n${avgRpm.toStringAsFixed(0)} rpm',
+                      sublabel: 'Spin rate',
+                    ),
+                    StatCard(
+                      icon: Icons.timelapse_rounded,
+                      label: 'Total Throws',
+                      value: '$totalThrows',
+                      sublabel: 'All time',
+                    ),
+                  ],
+                );
+              }),
 
               const SizedBox(height: 24),
               Text('Latest throws', style: AppFont.headline),
@@ -198,9 +225,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: ListTile(
-                        title: Text('Disc: ${w.scheibeId ?? '-'} • v=${w.geschwindigkeit ?? '-'}'),
-                        subtitle: Text('d=${w.entfernung ?? '-'} m   •   ${w.erstelltAm ?? ''}'),
-                        trailing: Text(w.id),
+                        isThreeLine: true,
+                        title: Text(
+                          'Disc: ${w.scheibeId ?? '-'} • v=${w.geschwindigkeit ?? '-'}',
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        subtitle: Text(
+                          'd=${w.entfernung ?? '-'} m   •   ${w.erstelltAm ?? ''}',
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        trailing: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 80),
+                          child: Text(
+                            w.id,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
                       ),
                     )),
             ],

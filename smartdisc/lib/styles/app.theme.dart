@@ -5,18 +5,20 @@ import 'app_font.dart';
 final ThemeData appTheme = ThemeData(
   useMaterial3: true,
   scaffoldBackgroundColor: AppColors.background,
-  colorScheme: const ColorScheme(
+  // Use a generated color scheme and override platform-critical colors.
+  colorScheme: ColorScheme.fromSeed(
+    seedColor: AppColors.bluePrimary,
     brightness: Brightness.light,
+  ).copyWith(
     primary: AppColors.bluePrimary,
     onPrimary: Colors.white,
     secondary: AppColors.primary,
     onSecondary: Colors.white,
-    error: Color(0xFFBA1A1A),
+    error: const Color(0xFFBA1A1A),
     onError: Colors.white,
-    background: AppColors.background,
-    onBackground: AppColors.textPrimary,
     surface: AppColors.surface,
     onSurface: AppColors.textPrimary,
+    // Note: scaffold background is set via scaffoldBackgroundColor above.
   ),
   textTheme: const TextTheme(
     headlineMedium: AppFont.headline,
