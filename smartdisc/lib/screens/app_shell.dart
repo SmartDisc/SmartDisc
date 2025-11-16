@@ -3,6 +3,7 @@ import 'dashboard_screen.dart';
 import 'analysis_screen.dart';
 import 'history_screen.dart';
 import 'profile_screen.dart';
+import 'discs_screen.dart';
 
 class AppShell extends StatefulWidget {
   /// initialIndex selects which tab to show (0 = dashboard, 1 = analysis, 2 = history, 3 = profile)
@@ -27,6 +28,7 @@ class _AppShellState extends State<AppShell> {
       const AnalysisScreen(),
       const HistoryScreen(),
       const ProfileScreen(),
+      const DiscsScreen(),
     ];
   }
 
@@ -53,6 +55,7 @@ class _AppShellState extends State<AppShell> {
           BottomNavigationBarItem(icon: Icon(Icons.analytics), label: 'Analysis'),
           BottomNavigationBarItem(icon: Icon(Icons.history_rounded), label: 'History'),
           BottomNavigationBarItem(icon: Icon(Icons.person_rounded), label: 'Profile'),
+          BottomNavigationBarItem(icon: Icon(Icons.storage_rounded), label: 'Discs'),
         ],
       ),
     );
