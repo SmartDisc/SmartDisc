@@ -22,7 +22,6 @@ class StatCard extends StatelessWidget {
       elevation: 0,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Container(
-        constraints: const BoxConstraints(minHeight: 140),
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(16),
@@ -36,7 +35,7 @@ class StatCard extends StatelessWidget {
           ),
         ),
         child: Column(
-          mainAxisSize: MainAxisSize.min,
+          mainAxisSize: MainAxisSize.max,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             CircleAvatar(
@@ -47,13 +46,16 @@ class StatCard extends StatelessWidget {
             const SizedBox(height: 10),
             Text(label, style: AppFont.statLabel),
             const SizedBox(height: 4),
-            // Allow the value to wrap nicely and avoid overflow inside the card
-            Text(
-              value,
-              style: AppFont.statValue,
-              softWrap: true,
-              maxLines: 3,
-              overflow: TextOverflow.ellipsis,
+            // Make the value scale down if there's not enough space instead of overflowing
+            Flexible(
+              child: FittedBox(
+                alignment: Alignment.centerLeft,
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  value,
+                  style: AppFont.statValue,
+                ),
+              ),
             ),
             if (sublabel.isNotEmpty) ...[
               const SizedBox(height: 6),

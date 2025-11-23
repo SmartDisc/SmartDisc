@@ -166,14 +166,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 // Use a max extent grid so each card gets a reasonable minimum width
                 // which prevents the grid from forcing a very small card height.
                 const maxExtent = 360.0;
+                final aspect = constraints.maxWidth < 420 ? 1.05 : 1.25;
                 return GridView(
                   physics: const NeverScrollableScrollPhysics(),
                   shrinkWrap: true,
-                  gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                  gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
                     maxCrossAxisExtent: maxExtent,
                     mainAxisSpacing: 12,
                     crossAxisSpacing: 12,
-                    childAspectRatio: 1.25,
+                    childAspectRatio: aspect,
                   ),
                   children: [
                     StatCard(
@@ -226,13 +227,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),
-                        trailing: ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 80),
-                          child: Text(
-                            w.id,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
+                                trailing: ConstrainedBox(
+                                  constraints: const BoxConstraints(maxWidth: 120),
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    crossAxisAlignment: CrossAxisAlignment.end,
+                                    children: [
+                                      Text(
+                                        w.id,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(fontSize: 12),
+                                      ),
+                                      if (w.rotation != null)
+                                        Text('${w.rotation!.toStringAsFixed(2)} rps', style: const TextStyle(fontSize: 12)),
+                                      if (w.hoehe != null)
+                                        Text('${w.hoehe!.toStringAsFixed(2)} m', style: const TextStyle(fontSize: 12)),
+                                      if (w.geschwindigkeit != null)
+                                        Text('${w.geschwindigkeit!.toStringAsFixed(2)} m/s', style: const TextStyle(fontSize: 12)),
+                                    ],
+                                  ),
+                                ),
                       ),
                     )),
             ],
