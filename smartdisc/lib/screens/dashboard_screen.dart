@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'dart:math' as math;
 import 'package:model_viewer_plus/model_viewer_plus.dart';
+import 'package:intl/intl.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
 import '../styles/app_colors.dart';
@@ -24,10 +26,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
   String selectedDisc = 'DISC-01';
 
   late Future<List<Wurf>> _wurfeF;
+  bool _localeReady = false;
 
   @override
   void initState() {
     super.initState();
+    initializeDateFormatting('de_AT').then((_) {
+      if (mounted) setState(() => _localeReady = true);
+    });
     _reload();
   }
 
@@ -44,7 +50,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   // Helpers: convert units if you like
   double _mpsToMph(num? v) => v == null ? 0 : v * 2.23693629;
-  double _mToFt(num? m) => m == null ? 0 : m * 3.2808399;
+
+  String _formatGermanTimestamp(String? iso) {
+    if (iso == null || iso.isEmpty) return '-';
+    final dt = DateTime.tryParse(iso);
+    if (dt == null) return '-';
+    final local = dt.toLocal();
+    if (!_localeReady) {
+      // While locale data not yet initialized, fallback to a simple ISO time slice
+      return local.toIso8601String().replaceFirst('T', ' ').substring(0, 19);
+    }
+    return DateFormat('dd.MM.yyyy HH:mm:ss', 'de_AT').format(local);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -78,29 +95,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
           final horizontalPadding = screenW < 380 ? 12.0 : 16.0;
 
           // Compute KPIs for the selected disc
-          final last10 = items.take(10).toList();
-          final avgSpeedMps = last10.isEmpty
-              ? 0
-              : last10
-                      .map((w) => w.geschwindigkeit ?? 0)
-                      .fold<double>(0, (a, b) => a + b) /
-                  last10.length;
-          final avgSpeedMph = _mpsToMph(avgSpeedMps);
-
-          final maxDistM = items.fold<double>(
-              0, (mx, w) => (w.entfernung ?? 0) > mx ? (w.entfernung ?? 0) : mx);
-          final maxDistFt = _mToFt(maxDistM);
-
-          // interpret geschwindigkeit as spin rate (rps) for demo
-          final avgRps = last10.isEmpty
-              ? 0
-              : last10
-                      .map((w) => w.geschwindigkeit ?? 0)
-                      .fold<double>(0, (a, b) => a + b) /
-                  last10.length;
-          final avgRpm = avgRps * 60.0;
-
-          final totalThrows = items.length;
+          final latest = items.isNotEmpty ? items.first : null;
+            // Removed unused KPI aggregation variables
+            // final avgSpeedMps = last10.isEmpty
+            //     ? 0
+            //     : last10
+            //             .map((w) => w.geschwindigkeit ?? 0)
+            //             .fold<double>(0, (a, b) => a + b) /
+            //         last10.length;
+            // final avgSpeedMph = _mpsToMph(avgSpeedMps);
+            // final maxDistM = items.fold<double>(
+            //     0, (mx, w) => (w.entfernung ?? 0) > mx ? (w.entfernung ?? 0) : mx);
+            // final maxDistFt = _mToFt(maxDistM);
+            // final avgRps = last10.isEmpty
+            //     ? 0
+            //     : last10
+            //             .map((w) => w.geschwindigkeit ?? 0)
+            //             .fold<double>(0, (a, b) => a + b) /
+            //         last10.length;
+            // final avgRpm = avgRps * 60.0;
+            // final totalThrows = items.length;
 
           return ListView(
             padding: EdgeInsets.fromLTRB(horizontalPadding, 16, horizontalPadding, 100),
@@ -177,29 +191,38 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     childAspectRatio: aspect,
                   ),
                   children: [
+                    // Show the actual latest/dummy fields prominently
                     StatCard(
-                      icon: Icons.flash_on_rounded,
-                      label: 'Avg Speed',
-                      value: '${avgSpeedMph.toStringAsFixed(1)} mph',
-                      sublabel: 'Last 10 throws',
-                    ),
-                    StatCard(
-                      icon: Icons.place_rounded,
-                      label: 'Max Distance',
-                      value: '${maxDistFt.toStringAsFixed(0)} ft',
-                      sublabel: 'Personal best',
+                      icon: Icons.history_rounded,
+                      label: 'Last Throw',
+                      value: latest != null
+                          ? '${latest.scheibeId ?? 'DISC'}\n${_formatGermanTimestamp(latest.erstelltAm)}'
+                          : '-',
+                      sublabel: 'Disc / Zeit (AT)',
                     ),
                     StatCard(
                       icon: Icons.refresh_rounded,
-                      label: 'Avg Rotation',
-                      value: '${avgRps.toStringAsFixed(2)} rps\n${avgRpm.toStringAsFixed(0)} rpm',
-                      sublabel: 'Spin rate',
+                      label: 'Rotation',
+                      value: latest != null && latest.rotation != null
+                          ? '${latest.rotation!.toStringAsFixed(2)} rps\n${(latest.rotation! * 60).toStringAsFixed(0)} rpm'
+                          : '-',
+                      sublabel: 'Latest measurement',
                     ),
                     StatCard(
-                      icon: Icons.timelapse_rounded,
-                      label: 'Total Throws',
-                      value: '$totalThrows',
-                      sublabel: 'All time',
+                      icon: Icons.height_rounded,
+                      label: 'Height',
+                      value: latest != null && latest.hoehe != null
+                          ? '${latest.hoehe!.toStringAsFixed(2)} m'
+                          : '-',
+                      sublabel: 'Latest measurement',
+                    ),
+                    StatCard(
+                      icon: Icons.speed_rounded,
+                      label: 'Speed',
+                      value: latest != null && latest.geschwindigkeit != null
+                          ? '${latest.geschwindigkeit!.toStringAsFixed(2)} m/s\n${_mpsToMph(latest.geschwindigkeit!).toStringAsFixed(1)} mph'
+                          : '-',
+                      sublabel: 'Latest measurement',
                     ),
                   ],
                 );
@@ -217,36 +240,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: ListTile(
-                        isThreeLine: true,
                         title: Text(
                           'Disc: ${w.scheibeId ?? '-'} • v=${w.geschwindigkeit ?? '-'}',
                           overflow: TextOverflow.ellipsis,
                         ),
                         subtitle: Text(
-                          'd=${w.entfernung ?? '-'} m   •   ${w.erstelltAm ?? ''}',
+                          'd=${w.entfernung ?? '-'} m   •   ${_formatGermanTimestamp(w.erstelltAm)}',
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),
-                                trailing: ConstrainedBox(
-                                  constraints: const BoxConstraints(maxWidth: 120),
-                                  child: Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    crossAxisAlignment: CrossAxisAlignment.end,
-                                    children: [
-                                      Text(
-                                        w.id,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(fontSize: 12),
-                                      ),
-                                      if (w.rotation != null)
-                                        Text('${w.rotation!.toStringAsFixed(2)} rps', style: const TextStyle(fontSize: 12)),
-                                      if (w.hoehe != null)
-                                        Text('${w.hoehe!.toStringAsFixed(2)} m', style: const TextStyle(fontSize: 12)),
-                                      if (w.geschwindigkeit != null)
-                                        Text('${w.geschwindigkeit!.toStringAsFixed(2)} m/s', style: const TextStyle(fontSize: 12)),
-                                    ],
-                                  ),
-                                ),
+                        trailing: Text(
+                          [
+                            if (w.rotation != null) '${w.rotation!.toStringAsFixed(2)} rps',
+                            if (w.hoehe != null) '${w.hoehe!.toStringAsFixed(2)} m',
+                            if (w.geschwindigkeit != null) '${w.geschwindigkeit!.toStringAsFixed(2)} m/s',
+                          ].join('  '),
+                          style: const TextStyle(fontSize: 12),
+                          textAlign: TextAlign.right,
+                          overflow: TextOverflow.fade,
+                        ),
                       ),
                     )),
             ],

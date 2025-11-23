@@ -1,5 +1,6 @@
 // lib/services/api_service.dart
 import 'dart:convert';
+import 'dart:math';
 import 'package:http/http.dart' as http;
 import '../env.dart';
 import '../models/wurf.dart';
@@ -17,13 +18,40 @@ class ApiService {
   Future<List<Wurf>> getWuerfe({int limit = 20, String? scheibeId}) async {
     final q = <String, dynamic>{'limit': limit};
     if (scheibeId != null) q['scheibe_id'] = scheibeId;   // <-- add filter
-    final res = await _client.get(_u('/api/wurfe', q));
-    if (res.statusCode != 200) {
-      throw Exception('getWuerfe failed: ${res.statusCode} ${res.body}');
+    try {
+      final res = await _client.get(_u('/api/wurfe', q));
+      if (res.statusCode != 200) {
+        // fallback to dummy data
+        return _generateDummyWuerfe(limit, scheibeId);
+      }
+      final body = jsonDecode(res.body) as Map<String, dynamic>;
+      final items = (body['items'] as List).cast<Map<String, dynamic>>();
+      final list = items.map(Wurf.fromJson).toList();
+      if (list.isEmpty) return _generateDummyWuerfe(limit, scheibeId);
+      return list;
+    } catch (e) {
+      // network or parsing error — return dummy data so UI can show samples
+      return _generateDummyWuerfe(limit, scheibeId);
     }
-    final body = jsonDecode(res.body) as Map<String, dynamic>;
-    final items = (body['items'] as List).cast<Map<String, dynamic>>();
-    return items.map(Wurf.fromJson).toList();
+  }
+
+  List<Wurf> _generateDummyWuerfe(int limit, String? scheibeId) {
+    final rnd = Random();
+    final now = DateTime.now().toUtc();
+    final cnt = limit.clamp(1, 12);
+    return List.generate(cnt, (i) {
+      final ms = now.subtract(Duration(seconds: i * 30));
+      final id = 'T${now.millisecondsSinceEpoch}_${i}_${rnd.nextInt(9000) + 1000}';
+      return Wurf(
+        id: id,
+        scheibeId: scheibeId ?? 'DISC-01',
+        entfernung: (rnd.nextDouble() * 40) + 10,
+        geschwindigkeit: double.parse((rnd.nextDouble() * 12 + 4).toStringAsFixed(2)),
+        rotation: double.parse((rnd.nextDouble() * 10 + 0.5).toStringAsFixed(2)),
+        hoehe: double.parse((rnd.nextDouble() * 6 + 0.5).toStringAsFixed(2)),
+        erstelltAm: ms.toIso8601String(),
+      );
+    });
   }
 
   Future<List<Messung>> getMessungen({int limit = 50, String? wurfId}) async {

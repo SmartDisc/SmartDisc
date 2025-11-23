@@ -1,11 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'screens/login_screen.dart';
 import 'screens/app_shell.dart';
 import 'screens/throw_list_example.dart';
 import 'services/auth_service.dart';
 import 'styles/app.theme.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  try {
+    await initializeDateFormatting('de_AT');
+  } catch (_) {
+    // Ignore; fallback formatting will still work without locale data.
+  }
   runApp(const MyApp());
 }
 
