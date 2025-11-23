@@ -1,7 +1,6 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+// SharedPreferences usage moved to DiscService
+import '../services/disc_service.dart';
 
 class DiscsScreen extends StatefulWidget {
   const DiscsScreen({super.key});
@@ -11,35 +10,29 @@ class DiscsScreen extends StatefulWidget {
 }
 
 class _DiscsScreenState extends State<DiscsScreen> {
-  static const _kKey = 'smartdisc_discs';
-
+  final _svc = DiscService.instance();
   List<Map<String, dynamic>> _discs = [];
   bool _loading = true;
 
   @override
   void initState() {
     super.initState();
-    _load();
+    _init();
   }
 
-  Future<void> _load() async {
-    final sp = await SharedPreferences.getInstance();
-    final s = sp.getString(_kKey);
-    if (s != null) {
-      try {
-        final parsed = (jsonDecode(s) as List).cast<Map<String, dynamic>>();
-        _discs = parsed;
-      } catch (_) {
-        _discs = [];
-      }
-    }
+  Future<void> _init() async {
+    await _svc.init();
+    _discs = List<Map<String, dynamic>>.from(_svc.discs.value);
+    // Listen for external changes so UI updates when discs change elsewhere
+    _svc.discs.addListener(() {
+      setState(() {
+        _discs = List<Map<String, dynamic>>.from(_svc.discs.value);
+      });
+    });
     setState(() => _loading = false);
   }
 
-  Future<void> _save() async {
-    final sp = await SharedPreferences.getInstance();
-    await sp.setString(_kKey, jsonEncode(_discs));
-  }
+  // Save handled by DiscService; no-op kept for compatibility if needed later.
 
   String _formatDate(String iso) {
     try {
@@ -68,10 +61,7 @@ class _DiscsScreenState extends State<DiscsScreen> {
     );
 
     if (name == null || name.isEmpty) return;
-    setState(() {
-      _discs.insert(0, {'name': name, 'addedAt': DateTime.now().toUtc().toIso8601String()});
-    });
-    await _save();
+    await _svc.add(name);
   }
 
   Future<void> _removeDisc(int idx) async {
@@ -87,8 +77,7 @@ class _DiscsScreenState extends State<DiscsScreen> {
       ),
     );
     if (ok != true) return;
-    setState(() => _discs.removeAt(idx));
-    await _save();
+    await _svc.removeAt(idx);
   }
 
   @override

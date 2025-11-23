@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
+import '../services/disc_service.dart';
 import '../styles/app_colors.dart';
 import '../styles/app_font.dart';
 import '../widgets/stat_card.dart';
@@ -20,9 +21,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
   final api = ApiService();
   final AuthService _auth = AuthService();
 
-  // Ten selectable discs
-  final List<String> discs =
-      List.generate(10, (i) => 'DISC-${(i + 1).toString().padLeft(2, '0')}');
+  // DiscService-backed selectable discs
+  final _discSvc = DiscService.instance();
+  List<String> discs = List.generate(10, (i) => 'DISC-${(i + 1).toString().padLeft(2, '0')}');
   String selectedDisc = 'DISC-01';
 
   late Future<List<Wurf>> _wurfeF;
@@ -35,6 +36,28 @@ class _DashboardScreenState extends State<DashboardScreen> {
       if (mounted) setState(() => _localeReady = true);
     });
     _reload();
+    _initDiscs();
+  }
+
+  Future<void> _initDiscs() async {
+    await _discSvc.init();
+    // populate local discs list from stored data, fallback to generated if empty
+    final stored = _discSvc.discs.value.map((m) => (m['name'] ?? '').toString()).where((s) => s.isNotEmpty).toList();
+    if (stored.isNotEmpty) {
+      setState(() {
+        discs = stored;
+        if (!discs.contains(selectedDisc)) selectedDisc = discs.first;
+      });
+    }
+    // Listen for changes (e.g., when user edits discs in Discs screen)
+    _discSvc.discs.addListener(() {
+      final vals = _discSvc.discs.value.map((m) => (m['name'] ?? '').toString()).where((s) => s.isNotEmpty).toList();
+      setState(() {
+        discs = vals.isNotEmpty ? vals : List.generate(10, (i) => 'DISC-${(i + 1).toString().padLeft(2, '0')}');
+        if (!discs.contains(selectedDisc)) selectedDisc = discs.isNotEmpty ? discs.first : 'DISC-01';
+        _reload();
+      });
+    });
   }
 
   void _reload() {
@@ -89,6 +112,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
             return const Center(child: CircularProgressIndicator());
           }
           final items = s.data ?? [];
+
+          // (Past sessions display removed from dashboard - use History screen)
 
           // Responsive horizontal padding so narrow phones don't look cramped
           final screenW = MediaQuery.of(context).size.width;
@@ -262,6 +287,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         ),
                       ),
                     )),
+
+              const SizedBox(height: 24),
+              const SizedBox.shrink(),
             ],
           );
         },
