@@ -55,6 +55,31 @@ class DummyThrowApi implements ThrowApi {
         maxHeightMeters: 5.2,
         maxRotationRps: 9.0,
       ),
+      // additional dummy players p4, p5, p6
+      Throw(
+        id: 't6',
+        playerId: 'p4',
+        timestamp: now.subtract(const Duration(days: 2, hours: 1)),
+        distanceMeters: 28.3,
+        maxHeightMeters: 2.4,
+        maxRotationRps: 4.8,
+      ),
+      Throw(
+        id: 't7',
+        playerId: 'p5',
+        timestamp: now.subtract(const Duration(days: 3, hours: 4)),
+        distanceMeters: 35.6,
+        maxHeightMeters: 3.0,
+        maxRotationRps: 5.6,
+      ),
+      Throw(
+        id: 't8',
+        playerId: 'p6',
+        timestamp: now.subtract(const Duration(days: 4, hours: 2)),
+        distanceMeters: 22.1,
+        maxHeightMeters: 1.8,
+        maxRotationRps: 3.9,
+      ),
     ]);
   }
 

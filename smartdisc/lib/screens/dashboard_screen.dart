@@ -96,6 +96,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
           // Compute KPIs for the selected disc
           final latest = items.isNotEmpty ? items.first : null;
+          
             // Removed unused KPI aggregation variables
             // final avgSpeedMps = last10.isEmpty
             //     ? 0
