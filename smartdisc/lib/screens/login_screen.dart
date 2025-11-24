@@ -173,15 +173,17 @@ class _Header extends StatelessWidget {
     return Column(
       children: [
         Container(
-          width: 120,
-          height: 120,
+          width: 140,
+          height: 140,
           decoration: BoxDecoration(
             color: AppColors.surface,
             shape: BoxShape.circle,
             border: Border.all(color: AppColors.border, width: 1.5),
           ),
-          child: const Center(
-            child: Icon(Icons.sports_baseball, size: 56, color: AppColors.primary),
+          padding: const EdgeInsets.all(24),
+          child: Image.asset(
+            'assets/images/smart_disc_logo.png',
+            fit: BoxFit.contain,
           ),
         ),
         const SizedBox(height: 18),

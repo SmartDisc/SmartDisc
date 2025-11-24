@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'screens/login_screen.dart';
 import 'screens/app_shell.dart';
+import 'screens/role_selection_screen.dart';
 import 'screens/throw_list_example.dart';
 import 'services/auth_service.dart';
 import 'styles/app.theme.dart';
@@ -27,6 +28,8 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: appTheme,
       routes: {
+        '/role': (context) => const RoleSelectionScreen(),
+        '/auth': (context) => const _AuthGate(),
         '/login': (context) => const LoginScreen(),
         '/dashboard': (context) => const AppShell(initialIndex: 0),
         '/analysis': (context) => const AppShell(initialIndex: 1),
@@ -35,7 +38,7 @@ class MyApp extends StatelessWidget {
         '/profile': (context) => const AppShell(initialIndex: 4),
         '/throws': (context) => const ThrowListExample(),
       },
-      home: const _AuthGate(),
+      home: const RoleSelectionScreen(),
     );
   }
 }
