@@ -92,18 +92,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
       appBar: AppBar(
         title: const Text('SmartDisc'),
         actions: [
-          IconButton(onPressed: _reload, icon: const Icon(Icons.refresh)),
           IconButton(
             tooltip: 'Logout',
             onPressed: _logout,
             icon: const Icon(Icons.logout_rounded),
           ),
         ],
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _reload,
-        icon: const Icon(Icons.sync),
-        label: const Text('Reload'),
       ),
       body: SafeArea(
         child: FutureBuilder<List<Wurf>>(
