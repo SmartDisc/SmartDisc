@@ -22,7 +22,6 @@ class StatCard extends StatelessWidget {
       elevation: 0,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Container(
-        constraints: const BoxConstraints(minHeight: 120),
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(16),
@@ -51,8 +50,8 @@ class StatCard extends StatelessWidget {
               // Render value with nicer typography: show primary line large, optional second line smaller
               const SizedBox(height: 6),
               ConstrainedBox(
-                // allow slightly larger box to avoid small overflows on larger fonts
-                constraints: const BoxConstraints(maxHeight: 88),
+                // allow enough room for wrapped text on narrow cards
+                constraints: const BoxConstraints(maxHeight: 140),
                 child: Builder(builder: (ctx) {
                   final lines = value.split('\n');
                   final primary = lines.isNotEmpty ? lines[0] : '';

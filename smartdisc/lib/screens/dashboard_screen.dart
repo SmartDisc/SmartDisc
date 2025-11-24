@@ -251,7 +251,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
               const SizedBox(height: 24),
               Text('Latest throws', style: AppFont.headline),
 
-              const SizedBox(height: 8),
+              const SizedBox(height: 6),
+              // Show which disc these throws belong to
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8.0),
+                child: Text('Disc: $selectedDisc', style: AppFont.subheadline),
+              ),
+
+              const SizedBox(height: 4),
               if (items.isEmpty)
                 const ListTile(title: Text('No throws yet'))
               else
@@ -262,15 +269,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   return Card(
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     child: ListTile(
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                       dense: true,
-                      leading: CircleAvatar(
-                        radius: 18,
-                        backgroundColor: AppColors.surfaceMuted,
-                        child: Text(w.scheibeId != null ? w.scheibeId!.split('-').last : '?', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                      // no leading avatar — keep layout minimal
+                      title: Text(w.scheibeId ?? '-', style: const TextStyle(fontWeight: FontWeight.w700)),
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(speed, style: const TextStyle(fontWeight: FontWeight.w600)),
+                          const SizedBox(height: 2),
+                          Text('$dist • ${_formatGermanTimestamp(w.erstelltAm)}', style: AppFont.subheadline, maxLines: 1, overflow: TextOverflow.ellipsis),
+                        ],
                       ),
-                      title: Text(speed, style: const TextStyle(fontWeight: FontWeight.w700)),
-                      subtitle: Text('$dist • ${_formatGermanTimestamp(w.erstelltAm)}', maxLines: 1, overflow: TextOverflow.ellipsis),
                       trailing: rot != null ? Text(rot, style: const TextStyle(fontSize: 12)) : null,
                     ),
                   );
