@@ -38,17 +38,29 @@ class ApiService {
   List<Wurf> _generateDummyWuerfe(int limit, String? scheibeId) {
     final rnd = Random();
     final now = DateTime.now().toUtc();
-    final cnt = limit.clamp(1, 12);
+    final cnt = limit.clamp(1, 20);
+
+    // prepare a small pool of discs; if caller requested a specific disc, use only that
+    final discPool = scheibeId != null
+        ? [scheibeId]
+        : List.generate(10, (j) => 'DISC-${(j + 1).toString().padLeft(2, '0')}');
+
     return List.generate(cnt, (i) {
-      final ms = now.subtract(Duration(seconds: i * 30));
+      // spread timestamps: most recent items within minutes, others spread across days
+      final ageSeconds = (i * (20 + rnd.nextInt(300))) + (rnd.nextInt(60));
+      final extraDays = rnd.nextInt(8); // 0..7 days ago
+      final ms = now.subtract(Duration(seconds: ageSeconds, days: extraDays));
+
       final id = 'T${now.millisecondsSinceEpoch}_${i}_${rnd.nextInt(9000) + 1000}';
+      final disc = discPool[i % discPool.length];
+
       return Wurf(
         id: id,
-        scheibeId: scheibeId ?? 'DISC-01',
-        entfernung: (rnd.nextDouble() * 40) + 10,
-        geschwindigkeit: double.parse((rnd.nextDouble() * 12 + 4).toStringAsFixed(2)),
-        rotation: double.parse((rnd.nextDouble() * 10 + 0.5).toStringAsFixed(2)),
-        hoehe: double.parse((rnd.nextDouble() * 6 + 0.5).toStringAsFixed(2)),
+        scheibeId: disc,
+        entfernung: double.parse(((rnd.nextDouble() * 50) + 8).toStringAsFixed(1)),
+        geschwindigkeit: double.parse((rnd.nextDouble() * 14 + 3).toStringAsFixed(2)),
+        rotation: double.parse((rnd.nextDouble() * 12 + 0.3).toStringAsFixed(2)),
+        hoehe: double.parse((rnd.nextDouble() * 7 + 0.2).toStringAsFixed(2)),
         erstelltAm: ms.toIso8601String(),
       );
     });

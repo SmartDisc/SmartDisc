@@ -116,7 +116,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
                     subtitle: Text('Avg: ${avgSpeed.toStringAsFixed(2)} m/s • Max d: ${maxDist.toStringAsFixed(1)} m'),
                     children: list.map((w) => ListTile(
                           title: Text(_formatGermanTimestamp(w.erstelltAm)),
-                          subtitle: Text('v=${w.geschwindigkeit ?? '-'} m/s   •   d=${w.entfernung ?? '-'} m'),
+                          subtitle: Text(
+                              'Disc: ${w.scheibeId ?? '-'}  •  v=${w.geschwindigkeit != null ? w.geschwindigkeit!.toStringAsFixed(1) : '-'} m/s  •  d=${w.entfernung != null ? w.entfernung!.toStringAsFixed(1) : '-'} m'),
                         )).toList(),
                   ),
                 );
