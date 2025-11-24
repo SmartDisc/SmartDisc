@@ -30,24 +30,22 @@ class RoleSelectionScreen extends StatelessWidget {
             children: [
               const Spacer(),
               Container(
-                width: 140,
-                height: 140,
-                decoration: BoxDecoration(
+                width: 220,
+                height: 220,
+                decoration: const BoxDecoration(
                   shape: BoxShape.circle,
-                  border: Border.all(color: AppColors.blueMuted, width: 2),
-                  color: Colors.white,
+                  color: AppColors.surface,
                 ),
-                padding: const EdgeInsets.all(24),
+                clipBehavior: Clip.antiAlias,
                 child: Image.asset(
-                  'assets/images/smart_disc_logo.png',
-                  fit: BoxFit.contain,
+                  'assets/images/smart_disc_logo.jpg',
+                  fit: BoxFit.cover,
                 ),
               ),
               const SizedBox(height: 24),
-              const Text('SMART DISC', style: AppFont.logoMark),
               const SizedBox(height: 8),
               Text(
-                'Wer bist du?',
+                'Who are you?',
                 style: AppFont.headline,
               ),
               const SizedBox(height: 48),
@@ -65,12 +63,6 @@ class RoleSelectionScreen extends StatelessWidget {
                   onPressed: () => _navigateToAuth(context, 'trainer'),
                   child: const Text('I am a Trainer'),
                 ),
-              ),
-              const SizedBox(height: 24),
-              Text(
-                'Du kannst später im Profil wechseln.',
-                style: AppFont.caption,
-                textAlign: TextAlign.center,
               ),
               const Spacer(),
             ],
