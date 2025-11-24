@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 class AuthService {
   static const String _tokenKey = 'auth_token';
   static const String _emailKey = 'auth_email';
+  static const String _roleKey = 'user_role';
 
   Future<bool> isLoggedIn() async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
@@ -14,6 +15,7 @@ class AuthService {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     await prefs.remove(_tokenKey);
     await prefs.remove(_emailKey);
+    await prefs.remove(_roleKey);
   }
 
   Future<void> login({required String email, required String password}) async {
@@ -30,6 +32,16 @@ class AuthService {
   Future<String?> currentUserEmail() async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     return prefs.getString(_emailKey);
+  }
+
+  Future<void> saveRole(String role) async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_roleKey, role);
+  }
+
+  Future<String?> currentUserRole() async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_roleKey);
   }
 }
 

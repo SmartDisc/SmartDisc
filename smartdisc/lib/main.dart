@@ -28,7 +28,7 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: appTheme,
       routes: {
-        '/role': (context) => const RoleSelectionScreen(),
+        '/role': (context) => RoleSelectionScreen(),
         '/auth': (context) => const _AuthGate(),
         '/login': (context) => const LoginScreen(),
         '/dashboard': (context) => const AppShell(initialIndex: 0),
@@ -38,7 +38,7 @@ class MyApp extends StatelessWidget {
         '/profile': (context) => const AppShell(initialIndex: 4),
         '/throws': (context) => const ThrowListExample(),
       },
-      home: const RoleSelectionScreen(),
+      home: RoleSelectionScreen(),
     );
   }
 }

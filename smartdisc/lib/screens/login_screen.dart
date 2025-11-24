@@ -133,20 +133,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           child: const Text('Create Account'),
                         ),
                       ),
-                      const SizedBox(height: 28),
-                      Text.rich(
-                        TextSpan(
-                          style: AppFont.caption,
-                          children: const [
-                            TextSpan(text: 'By clicking continue, you agree to our '),
-                            TextSpan(text: 'Terms of Service', style: AppFont.link),
-                            TextSpan(text: ' and '),
-                            TextSpan(text: 'Privacy Policy', style: AppFont.link),
-                            TextSpan(text: '.'),
-                          ],
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
+                      const SizedBox(height: 4),
                     ],
                   ),
                 ),

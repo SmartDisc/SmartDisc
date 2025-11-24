@@ -1,16 +1,17 @@
 import 'package:flutter/material.dart';
+import '../services/auth_service.dart';
 import '../styles/app_colors.dart';
 import '../styles/app_font.dart';
 
 class RoleSelectionScreen extends StatelessWidget {
-  const RoleSelectionScreen({super.key});
+  RoleSelectionScreen({super.key});
+
+  final AuthService _auth = AuthService();
 
   void _navigateToAuth(BuildContext context, String role) {
-    Navigator.pushReplacementNamed(
-      context,
-      '/auth',
-      arguments: role,
-    );
+    _auth.saveRole(role).then((_) {
+      Navigator.pushReplacementNamed(context, '/auth');
+    });
   }
 
   @override
