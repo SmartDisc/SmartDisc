@@ -28,6 +28,11 @@ class AppFont {
     fontWeight: FontWeight.bold,
     color: AppColors.textPrimary,
   );
+  static const TextStyle statValueLarge = TextStyle(
+    fontSize: 34,
+    fontWeight: FontWeight.w700,
+    color: AppColors.textPrimary,
+  );
 
   static const TextStyle statLabel = TextStyle(
     fontSize: 14,

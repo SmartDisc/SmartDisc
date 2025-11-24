@@ -22,6 +22,7 @@ class StatCard extends StatelessWidget {
       elevation: 0,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Container(
+        constraints: const BoxConstraints(minHeight: 120),
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(16),
@@ -35,7 +36,7 @@ class StatCard extends StatelessWidget {
           ),
         ),
         child: Column(
-          mainAxisSize: MainAxisSize.max,
+          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             CircleAvatar(
@@ -47,16 +48,29 @@ class StatCard extends StatelessWidget {
             Text(label, style: AppFont.statLabel),
             const SizedBox(height: 4),
             // Make the value scale down if there's not enough space instead of overflowing
-            Flexible(
-              child: FittedBox(
-                alignment: Alignment.centerLeft,
-                fit: BoxFit.scaleDown,
-                child: Text(
-                  value,
-                  style: AppFont.statValue,
-                ),
+              // Render value with nicer typography: show primary line large, optional second line smaller
+              const SizedBox(height: 6),
+              ConstrainedBox(
+                // allow slightly larger box to avoid small overflows on larger fonts
+                constraints: const BoxConstraints(maxHeight: 88),
+                child: Builder(builder: (ctx) {
+                  final lines = value.split('\n');
+                  final primary = lines.isNotEmpty ? lines[0] : '';
+                  final rest = lines.length > 1 ? lines.sublist(1).join(' ') : '';
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Primary value (prominent)
+                      Text(primary, style: AppFont.statValueLarge, overflow: TextOverflow.ellipsis, maxLines: 1),
+                      if (rest.isNotEmpty) ...[
+                        const SizedBox(height: 4),
+                        Text(rest, style: AppFont.subheadline, overflow: TextOverflow.ellipsis, maxLines: 2),
+                      ],
+                    ],
+                  );
+                }),
               ),
-            ),
             if (sublabel.isNotEmpty) ...[
               const SizedBox(height: 6),
               Text(sublabel, style: AppFont.subheadline),

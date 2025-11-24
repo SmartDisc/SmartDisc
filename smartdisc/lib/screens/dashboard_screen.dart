@@ -105,7 +105,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
         icon: const Icon(Icons.sync),
         label: const Text('Reload'),
       ),
-      body: FutureBuilder<List<Wurf>>(
+      body: SafeArea(
+        child: FutureBuilder<List<Wurf>>(
         future: _wurfeF,
         builder: (c, s) {
           if (s.connectionState != ConnectionState.done) {
@@ -143,7 +144,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             // final totalThrows = items.length;
 
           return ListView(
-            padding: EdgeInsets.fromLTRB(horizontalPadding, 16, horizontalPadding, 100),
+            padding: EdgeInsets.fromLTRB(horizontalPadding, 16, horizontalPadding, 24),
             children: [
               // 3D Frisbee preview directly under the header — make height responsive
               LayoutBuilder(builder: (ctx, constraints) {
@@ -200,31 +201,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
               const SizedBox(height: 16),
 
-              // KPI grid — responsive columns and aspect ratio based on available width
+              // KPI grid — responsive columns using Wrap to avoid forcing tall intrinsic heights
               LayoutBuilder(builder: (ctx, constraints) {
-                // final w = constraints.maxWidth; // unused with maxCrossAxisExtent grid
-                // Use a max extent grid so each card gets a reasonable minimum width
-                // which prevents the grid from forcing a very small card height.
-                const maxExtent = 360.0;
-                final aspect = constraints.maxWidth < 420 ? 1.05 : 1.25;
-                return GridView(
-                  physics: const NeverScrollableScrollPhysics(),
-                  shrinkWrap: true,
-                  gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
-                    maxCrossAxisExtent: maxExtent,
-                    mainAxisSpacing: 12,
-                    crossAxisSpacing: 12,
-                    childAspectRatio: aspect,
-                  ),
+                final w = constraints.maxWidth;
+                // target two columns on narrow, up to four on wide
+                final cols = w < 420 ? 2 : (w < 900 ? 3 : 4);
+                final spacing = 12.0;
+                final itemW = (w - (cols - 1) * spacing) / cols;
+                return Wrap(
+                  spacing: spacing,
+                  runSpacing: spacing,
                   children: [
-                    // Show the actual latest/dummy fields prominently
                     StatCard(
                       icon: Icons.history_rounded,
-                      label: 'Last Throw',
+                      label: 'Disc / Time',
                       value: latest != null
                           ? '${latest.scheibeId ?? 'DISC'}\n${_formatGermanTimestamp(latest.erstelltAm)}'
                           : '-',
-                      sublabel: 'Disc / Zeit (AT)',
+                      sublabel: 'Latest',
                     ),
                     StatCard(
                       icon: Icons.refresh_rounded,
@@ -250,7 +244,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           : '-',
                       sublabel: 'Latest measurement',
                     ),
-                  ],
+                  ].map((c) => SizedBox(width: itemW.clamp(140.0, 420.0), child: c)).toList(),
                 );
               }),
 
@@ -261,32 +255,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
               if (items.isEmpty)
                 const ListTile(title: Text('No throws yet'))
               else
-                ...items.take(10).map((w) => Card(
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                ...items.take(10).map((w) {
+                  final speed = w.geschwindigkeit != null ? '${w.geschwindigkeit!.toStringAsFixed(1)} m/s' : '-';
+                  final dist = w.entfernung != null ? '${w.entfernung!.toStringAsFixed(1)} m' : '-';
+                  final rot = w.rotation != null ? '${w.rotation!.toStringAsFixed(2)} rps' : null;
+                  return Card(
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    child: ListTile(
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      dense: true,
+                      leading: CircleAvatar(
+                        radius: 18,
+                        backgroundColor: AppColors.surfaceMuted,
+                        child: Text(w.scheibeId != null ? w.scheibeId!.split('-').last : '?', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
                       ),
-                      child: ListTile(
-                        title: Text(
-                          'Disc: ${w.scheibeId ?? '-'} • v=${w.geschwindigkeit ?? '-'}',
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        subtitle: Text(
-                          'd=${w.entfernung ?? '-'} m   •   ${_formatGermanTimestamp(w.erstelltAm)}',
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        trailing: Text(
-                          [
-                            if (w.rotation != null) '${w.rotation!.toStringAsFixed(2)} rps',
-                            if (w.hoehe != null) '${w.hoehe!.toStringAsFixed(2)} m',
-                            if (w.geschwindigkeit != null) '${w.geschwindigkeit!.toStringAsFixed(2)} m/s',
-                          ].join('  '),
-                          style: const TextStyle(fontSize: 12),
-                          textAlign: TextAlign.right,
-                          overflow: TextOverflow.fade,
-                        ),
-                      ),
-                    )),
+                      title: Text(speed, style: const TextStyle(fontWeight: FontWeight.w700)),
+                      subtitle: Text('$dist • ${_formatGermanTimestamp(w.erstelltAm)}', maxLines: 1, overflow: TextOverflow.ellipsis),
+                      trailing: rot != null ? Text(rot, style: const TextStyle(fontSize: 12)) : null,
+                    ),
+                  );
+                }),
 
               const SizedBox(height: 24),
               const SizedBox.shrink(),
@@ -294,6 +282,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           );
         },
       ),
-    );
+    ),
+  );
   }
 }
