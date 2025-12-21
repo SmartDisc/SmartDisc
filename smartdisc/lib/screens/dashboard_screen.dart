@@ -25,7 +25,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
   final _discSvc = DiscService.instance();
   List<String> discs = List.generate(10, (i) => 'DISC-${(i + 1).toString().padLeft(2, '0')}');
   String selectedDisc = 'DISC-01';
-
   late Future<List<Wurf>> _wurfeF;
   bool _localeReady = false;
 
@@ -107,7 +106,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
             return const Center(child: CircularProgressIndicator());
           }
           final items = s.data ?? [];
-
           // (Past sessions display removed from dashboard - use History screen)
 
           // Responsive horizontal padding so narrow phones don't look cramped
