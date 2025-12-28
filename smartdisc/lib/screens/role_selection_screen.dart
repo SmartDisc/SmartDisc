@@ -8,10 +8,10 @@ class RoleSelectionScreen extends StatelessWidget {
 
   final AuthService _auth = AuthService();
 
-  void _navigateToAuth(BuildContext context, String role) {
-    _auth.saveRole(role).then((_) {
-      Navigator.pushReplacementNamed(context, '/auth');
-    });
+  Future<void> _navigateToAuth(BuildContext context, String role) async {
+    await _auth.saveRole(role);
+    if (!context.mounted) return;
+    Navigator.pushReplacementNamed(context, '/auth');
   }
 
   @override

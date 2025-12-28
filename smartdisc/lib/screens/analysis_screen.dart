@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
-import 'package:intl/intl.dart';
 import '../services/api_service.dart';
 import '../models/wurf.dart';
 import '../styles/app_colors.dart';
@@ -63,28 +62,28 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
   String _getMetricLabel(YAxisMetric metric) {
     switch (metric) {
       case YAxisMetric.distance:
-        return 'Entfernung (m)';
+        return 'Distance (m)';
       case YAxisMetric.rotation:
         return 'Rotation (rps)';
       case YAxisMetric.height:
-        return 'Höhe (m)';
+        return 'Height (m)';
       case YAxisMetric.speed:
-        return 'Geschwindigkeit (m/s)';
+        return 'Speed (m/s)';
       case YAxisMetric.timestamp:
-        return 'Zeit seit erstem Wurf (h)';
+        return 'Hours since first throw (h)';
     }
   }
 
   String _getMetricDisplayName(YAxisMetric metric) {
     switch (metric) {
       case YAxisMetric.distance:
-        return 'Entfernung';
+        return 'Distance';
       case YAxisMetric.rotation:
         return 'Rotation';
       case YAxisMetric.height:
-        return 'Höhe';
+        return 'Height';
       case YAxisMetric.speed:
-        return 'Geschwindigkeit';
+        return 'Speed';
       case YAxisMetric.timestamp:
         return 'DISC7TIME';
     }
@@ -134,31 +133,34 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
     // Use the first throw time from ALL wurfe, not just filtered ones
     final firstTime = _getFirstThrowTime() ?? DateTime.now();
 
-    final spots = <FlSpot>[];
-    for (int i = 0; i < _wurfe.length; i++) {
-      final wurf = _wurfe[i];
+    // Group by integer hour (so each integer X has a single Y value).
+    final Map<int, List<double>> grouped = {};
+    for (final wurf in _wurfe) {
       final timestamp = wurf.erstelltAm != null
           ? DateTime.parse(wurf.erstelltAm!)
           : DateTime.now();
-
-      // X-axis: time difference in hours from first throw (of all data)
-      final x = timestamp.difference(firstTime).inHours.toDouble();
-
-      // Y-axis: selected metric value
+      final xInt = timestamp.difference(firstTime).inHours;
       final yValue = _getMetricValue(wurf, _selectedMetric);
       if (yValue != null) {
-        spots.add(FlSpot(x, yValue));
+        grouped.putIfAbsent(xInt, () => []).add(yValue);
       }
     }
 
+    final spots = grouped.entries.map((e) {
+      final x = e.key.toDouble();
+      final values = e.value;
+      final avg = values.reduce((a, b) => a + b) / values.length;
+      return FlSpot(x, avg);
+    }).toList();
+
+    spots.sort((a, b) => a.x.compareTo(b.x));
     return spots;
   }
 
   String _formatXAxisLabel(double value) {
-    // Show time in days: 1t, 2t, 3t, etc.
-    // Round to nearest day, but show at least 0t if value is >= 0
+    // Show time in days: 1d, 2d, 3d, etc.
     final days = (value / 24).round();
-    return '${days >= 0 ? days : 0}t';
+    return '${days >= 0 ? days : 0}d';
   }
 
   List<String> _getAvailableDiscs() {
@@ -208,7 +210,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
               items: [
                 const DropdownMenuItem<String?>(
                   value: null,
-                  child: Text('Alle', style: AppFont.body),
+                  child: Text('All', style: AppFont.body),
                 ),
                 ..._getAvailableDiscs().map((disc) {
                   return DropdownMenuItem<String?>(
@@ -263,12 +265,12 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                           size: 72, color: AppColors.textMuted),
                       const SizedBox(height: 16),
                       Text(
-                        'Keine Daten verfügbar',
+                        'No data available',
                         style: AppFont.headline,
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Würfe werden hier angezeigt, sobald Daten vorhanden sind.',
+                        'Throws will appear here once data is available.',
                         style: AppFont.body,
                         textAlign: TextAlign.center,
                       ),
@@ -296,12 +298,12 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  'Entwicklung über Zeit',
+                                  'Trend over Time',
                                   style: AppFont.subheadline,
                                 ),
                                 const SizedBox(height: 8),
                                 Text(
-                                  'Y-Achse: ${_getMetricLabel(_selectedMetric)}',
+                                  'Y-Axis: ${_getMetricLabel(_selectedMetric)}',
                                   style: AppFont.caption,
                                 ),
                                 const SizedBox(height: 16),
@@ -388,7 +390,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                                           ),
                                           belowBarData: BarAreaData(
                                             show: true,
-                                            color: AppColors.primary.withOpacity(0.1),
+                                            color: AppColors.primary.withAlpha(26),
                                           ),
                                         ),
                                       ],
@@ -412,17 +414,17 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  'Statistik',
+                                  'Statistics',
                                   style: AppFont.subheadline,
                                 ),
                                 const SizedBox(height: 12),
                                 _buildStatRow(
-                                  'Anzahl Würfe',
+                                  'Number of throws',
                                   _wurfe.length.toString(),
                                 ),
                                 const Divider(),
                                 _buildStatRow(
-                                  'Durchschnitt ${_getMetricDisplayName(_selectedMetric)}',
+                                  'Average ${_getMetricDisplayName(_selectedMetric)}',
                                   _getAverageValue().toStringAsFixed(2),
                                 ),
                                 const Divider(),
