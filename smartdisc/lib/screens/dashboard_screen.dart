@@ -67,7 +67,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Future<void> _logout() async {
     await _auth.logout();
     if (!mounted) return;
-    Navigator.of(context).pushReplacementNamed('/login');
+    Navigator.of(context).pushReplacementNamed('/auth');
   }
 
   // Helpers: convert units if you like
@@ -88,16 +88,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('SmartDisc'),
-        actions: [
-          IconButton(
-            tooltip: 'Logout',
-            onPressed: _logout,
-            icon: const Icon(Icons.logout_rounded),
-          ),
-        ],
-      ),
       body: SafeArea(
         child: FutureBuilder<List<Wurf>>(
         future: _wurfeF,

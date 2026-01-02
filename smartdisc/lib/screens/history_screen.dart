@@ -43,7 +43,6 @@ class _HistoryScreenState extends State<HistoryScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('History')),
       body: FutureBuilder<List<Wurf>>(
         future: _wurfeF,
         builder: (c, s) {

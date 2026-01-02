@@ -10,7 +10,7 @@ class ApiService {
   final http.Client _client = http.Client();
 
   Uri _u(String path, [Map<String, dynamic>? q]) =>
-      Uri.parse('$apiBase$path').replace(
+      Uri.parse('$apiBaseUrl$path').replace(
         queryParameters: q?.map((k, v) => MapEntry(k, '$v')),
       );
 

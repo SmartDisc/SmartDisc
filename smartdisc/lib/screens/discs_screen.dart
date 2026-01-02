@@ -84,9 +84,6 @@ class _DiscsScreenState extends State<DiscsScreen> {
   Widget build(BuildContext context) {
     if (_loading) return const Scaffold(body: Center(child: CircularProgressIndicator()));
     return Scaffold(
-      appBar: AppBar(title: const Text('Discs'), actions: [
-        IconButton(onPressed: _addDisc, icon: const Icon(Icons.add), tooltip: 'Add disc'),
-      ]),
       body: _discs.isEmpty
           ? Center(
               child: Padding(

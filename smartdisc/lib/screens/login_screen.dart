@@ -14,8 +14,9 @@ class _LoginScreenState extends State<LoginScreen> {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
-  bool _isSubmitting = false;
   final AuthService _auth = AuthService();
+  bool _isSubmitting = false;
+  String? _errorMessage;
 
   @override
   void dispose() {
@@ -24,32 +25,124 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
+  String? _validateEmail(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return 'Bitte E-Mail eingeben';
+    }
+    if (!value.contains('@')) {
+      return 'Ungültige E-Mail';
+    }
+    return null;
+  }
+
+  String? _validatePassword(String? value) {
+    if (value == null || value.isEmpty) {
+      return 'Bitte Passwort eingeben';
+    }
+    if (value.length < 6) {
+      return 'Mindestens 6 Zeichen';
+    }
+    return null;
+  }
+
+  Future<void> _navigateAfterLogin() async {
+    final role = await _auth.currentUserRole();
+    if (!mounted) return;
+    if (role == 'player') {
+      Navigator.of(context).pushReplacementNamed('/player/dashboard');
+    } else if (role == 'trainer') {
+      Navigator.of(context).pushReplacementNamed('/trainer/dashboard');
+    } else {
+      Navigator.of(context).pushReplacementNamed('/auth');
+    }
+  }
+
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
-    setState(() { _isSubmitting = true; });
+    setState(() {
+      _isSubmitting = true;
+      _errorMessage = null;
+    });
     try {
       await _auth.login(
         email: _emailController.text.trim(),
         password: _passwordController.text,
       );
-      if (mounted) {
-        Navigator.of(context).pushReplacementNamed('/dashboard');
-      }
+      await _navigateAfterLogin();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString())),
-      );
+      setState(() {
+        _errorMessage = e.toString().replaceFirst('Exception: ', '');
+      });
     } finally {
       if (mounted) {
-        setState(() { _isSubmitting = false; });
+        setState(() => _isSubmitting = false);
       }
     }
+  }
+
+  Widget _buildEmailField() {
+    return TextFormField(
+      controller: _emailController,
+      keyboardType: TextInputType.emailAddress,
+      decoration: const InputDecoration(hintText: 'email@domain.com'),
+      validator: _validateEmail,
+    );
+  }
+
+  Widget _buildPasswordField() {
+    return TextFormField(
+      controller: _passwordController,
+      decoration: const InputDecoration(hintText: 'Passwort'),
+      obscureText: true,
+      validator: _validatePassword,
+    );
+  }
+
+  Widget _buildErrorBanner() {
+    if (_errorMessage == null) return const SizedBox.shrink();
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.red.shade50,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.red.shade200),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.error_outline, color: Colors.red.shade700, size: 20),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              _errorMessage!,
+              style: TextStyle(color: Colors.red.shade700, fontSize: 14),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPrimaryButton() {
+    return SizedBox(
+      width: double.infinity,
+      child: ElevatedButton(
+        onPressed: _isSubmitting ? null : _submit,
+        child: _isSubmitting
+            ? const SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+              )
+            : const Text('Continue'),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: AppBar(title: const Text('Login')),
       body: SafeArea(
         child: Container(
           width: double.infinity,
@@ -68,68 +161,20 @@ class _LoginScreenState extends State<LoginScreen> {
                       const SizedBox(height: 32),
                       Text('Login', style: AppFont.headline),
                       const SizedBox(height: 28),
-                      TextFormField(
-                        controller: _emailController,
-                        keyboardType: TextInputType.emailAddress,
-                        decoration: const InputDecoration(
-                          hintText: 'email@domain.com',
-                        ),
-                        validator: (value) {
-                          if (value == null || value.trim().isEmpty) {
-                            return 'Bitte E-Mail eingeben';
-                          }
-                          if (!value.contains('@')) {
-                            return 'Ungültige E-Mail';
-                          }
-                          return null;
-                        },
-                      ),
+                      _buildEmailField(),
                       const SizedBox(height: 16),
-                      TextFormField(
-                        controller: _passwordController,
-                        decoration: const InputDecoration(
-                          hintText: 'Passwort',
-                        ),
-                        obscureText: true,
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Bitte Passwort eingeben';
-                          }
-                          if (value.length < 6) {
-                            return 'Mindestens 6 Zeichen';
-                          }
-                          return null;
-                        },
-                      ),
+                      _buildPasswordField(),
+                      const SizedBox(height: 16),
+                      _buildErrorBanner(),
                       const SizedBox(height: 24),
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton(
-                          onPressed: _isSubmitting ? null : _submit,
-                          child: _isSubmitting
-                              ? const SizedBox(
-                                  width: 18,
-                                  height: 18,
-                                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                                )
-                              : const Text('Continue'),
-                        ),
-                      ),
+                      _buildPrimaryButton(),
                       const SizedBox(height: 20),
-                      Row(
-                        children: const [
-                          Expanded(child: Divider(color: AppColors.border)),
-                          SizedBox(width: 12),
-                          Text('or', style: AppFont.caption),
-                          SizedBox(width: 12),
-                          Expanded(child: Divider(color: AppColors.border)),
-                        ],
-                      ),
+                      const _OrDivider(),
                       const SizedBox(height: 20),
                       SizedBox(
                         width: double.infinity,
                         child: OutlinedButton(
-                          onPressed: _handleCreateAccount,
+                          onPressed: () => Navigator.pushNamed(context, '/auth/register'),
                           child: const Text('Create Account'),
                         ),
                       ),
@@ -142,12 +187,6 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         ),
       ),
-    );
-  }
-
-  void _handleCreateAccount() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Account creation folgt in Kürze.')),
     );
   }
 }
@@ -178,4 +217,19 @@ class _Header extends StatelessWidget {
   }
 }
 
+class _OrDivider extends StatelessWidget {
+  const _OrDivider();
 
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: const [
+        Expanded(child: Divider(color: AppColors.border)),
+        SizedBox(width: 12),
+        Text('or', style: AppFont.caption),
+        SizedBox(width: 12),
+        Expanded(child: Divider(color: AppColors.border)),
+      ],
+    );
+  }
+}

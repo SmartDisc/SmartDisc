@@ -89,6 +89,26 @@ CREATE TABLE IF NOT EXISTS scheiben (
     geaendert_am TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')) NOT NULL
 );
 
+-- Tabelle für Benutzer
+CREATE TABLE IF NOT EXISTS users (
+    id TEXT PRIMARY KEY,
+    first_name TEXT NOT NULL,
+    last_name TEXT NOT NULL,
+    email TEXT NOT NULL UNIQUE,
+    password_hash TEXT NOT NULL,
+    role TEXT NOT NULL CHECK(role IN ('player','trainer')),
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+
+-- Tabelle für Auth-Tokens
+CREATE TABLE IF NOT EXISTS auth_tokens (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id TEXT NOT NULL,
+    token TEXT NOT NULL UNIQUE,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
 -- Indizes für bessere Performance
 CREATE INDEX IF NOT EXISTS idx_wurfe_scheibe_id ON wurfe(scheibe_id);
 CREATE INDEX IF NOT EXISTS idx_wurfe_erstellt_am ON wurfe(erstellt_am);
@@ -99,6 +119,10 @@ CREATE INDEX IF NOT EXISTS idx_messungen_zeitpunkt ON messungen(zeitpunkt);
 CREATE INDEX IF NOT EXISTS idx_messungen_sequenz ON messungen(wurf_id, sequenz_nr);
 CREATE INDEX IF NOT EXISTS idx_audit_log_tabelle_id ON audit_log(tabelle, datensatz_id);
 CREATE INDEX IF NOT EXISTS idx_audit_log_zeitpunkt ON audit_log(zeitpunkt);
+CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
+CREATE INDEX IF NOT EXISTS idx_auth_tokens_token ON auth_tokens(token);
+CREATE INDEX IF NOT EXISTS idx_auth_tokens_user_id ON auth_tokens(user_id);
 
 -- Trigger für automatisches Audit-Logging bei Änderungen
 CREATE TRIGGER IF NOT EXISTS trigger_wurfe_update AFTER UPDATE ON wurfe

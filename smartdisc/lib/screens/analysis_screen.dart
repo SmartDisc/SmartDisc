@@ -194,69 +194,71 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(
-        title: const Text('Analysis', style: AppFont.headline),
-        backgroundColor: AppColors.surface,
-        elevation: 0,
-        actions: [
-          // Disc Dropdown
-          Padding(
-            padding: const EdgeInsets.only(right: 8.0),
-            child: DropdownButton<String?>(
-              value: _selectedDisc,
-              hint: const Text('Disc', style: AppFont.body),
-              underline: const SizedBox(),
-              icon: const Icon(Icons.arrow_drop_down, color: AppColors.primary),
-              items: [
-                const DropdownMenuItem<String?>(
-                  value: null,
-                  child: Text('All', style: AppFont.body),
-                ),
-                ..._getAvailableDiscs().map((disc) {
-                  return DropdownMenuItem<String?>(
-                    value: disc,
-                    child: Text(disc, style: AppFont.body),
-                  );
-                }),
-              ],
-              onChanged: (String? newValue) {
-                setState(() {
-                  _selectedDisc = newValue;
-                  _applyDiscFilter();
-                });
-              },
-            ),
-          ),
-          // Metric Dropdown
-          Padding(
-            padding: const EdgeInsets.only(right: 16.0),
-            child: DropdownButton<YAxisMetric>(
-              value: _selectedMetric,
-              underline: const SizedBox(),
-              icon: const Icon(Icons.arrow_drop_down, color: AppColors.primary),
-              items: YAxisMetric.values.map((metric) {
-                return DropdownMenuItem<YAxisMetric>(
-                  value: metric,
-                  child: Text(
-                    _getMetricDisplayName(metric),
-                    style: AppFont.body,
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Disc and Metric Dropdowns in body instead of AppBar
+            Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: DropdownButton<String?>(
+                      value: _selectedDisc,
+                      hint: const Text('Disc', style: AppFont.body),
+                      underline: const SizedBox(),
+                      icon: const Icon(Icons.arrow_drop_down, color: AppColors.primary),
+                      items: [
+                        const DropdownMenuItem<String?>(
+                          value: null,
+                          child: Text('All', style: AppFont.body),
+                        ),
+                        ..._getAvailableDiscs().map((disc) {
+                          return DropdownMenuItem<String?>(
+                            value: disc,
+                            child: Text(disc, style: AppFont.body),
+                          );
+                        }),
+                      ],
+                      onChanged: (String? newValue) {
+                        setState(() {
+                          _selectedDisc = newValue;
+                          _applyDiscFilter();
+                        });
+                      },
+                    ),
                   ),
-                );
-              }).toList(),
-              onChanged: (YAxisMetric? newValue) {
-                if (newValue != null) {
-                  setState(() {
-                    _selectedMetric = newValue;
-                  });
-                }
-              },
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: DropdownButton<YAxisMetric>(
+                      value: _selectedMetric,
+                      underline: const SizedBox(),
+                      icon: const Icon(Icons.arrow_drop_down, color: AppColors.primary),
+                      items: YAxisMetric.values.map((metric) {
+                        return DropdownMenuItem<YAxisMetric>(
+                          value: metric,
+                          child: Text(
+                            _getMetricDisplayName(metric),
+                            style: AppFont.body,
+                          ),
+                        );
+                      }).toList(),
+                      onChanged: (YAxisMetric? newValue) {
+                        if (newValue != null) {
+                          setState(() {
+                            _selectedMetric = newValue;
+                          });
+                        }
+                      },
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
-      ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _wurfe.isEmpty
+            Expanded(
+              child: _isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : _wurfe.isEmpty
               ? Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -442,9 +444,13 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                           ),
                         ),
                       ],
-                    ),
                   ),
                 ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
