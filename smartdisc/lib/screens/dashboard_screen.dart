@@ -64,12 +64,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     setState(() {});
   }
 
-  Future<void> _logout() async {
-    await _auth.logout();
-    if (!mounted) return;
-    Navigator.of(context).pushReplacementNamed('/auth');
-  }
-
   // Helpers: convert units if you like
   double _mpsToMph(num? v) => v == null ? 0 : v * 2.23693629;
 

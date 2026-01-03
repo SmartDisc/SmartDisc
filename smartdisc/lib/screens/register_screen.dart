@@ -47,7 +47,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         passwordConfirm: _passwordConfirmController.text,
         role: _selectedRole,
       );
-      if (mounted) {
+      if (context.mounted) {
         final role = await _auth.currentUserRole();
         if (role == 'player') {
           Navigator.of(context).pushReplacementNamed('/player/dashboard');
@@ -58,12 +58,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
         }
       }
     } catch (e) {
-      if (!mounted) return;
+      if (!context.mounted) return;
       setState(() {
         _errorMessage = e.toString().replaceFirst('Exception: ', '');
       });
     } finally {
-      if (mounted) {
+      if (context.mounted) {
         setState(() { _isSubmitting = false; });
       }
     }
@@ -182,7 +182,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       ),
                       const SizedBox(height: 16),
                       DropdownButtonFormField<String>(
-                        value: _selectedRole,
+                        initialValue: _selectedRole,
                         decoration: const InputDecoration(
                           labelText: 'Rolle',
                         ),

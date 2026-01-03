@@ -167,6 +167,11 @@ class AuthService {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     return prefs.getString(_tokenKey);
   }
+
+  Future<void> saveRole(String role) async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_roleKey, role);
+  }
 }
 
 

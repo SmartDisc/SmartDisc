@@ -55,7 +55,6 @@ class _AuthGate extends StatefulWidget {
 
 class _AuthGateState extends State<_AuthGate> {
   final AuthService _auth = AuthService();
-  bool _loading = true;
 
   @override
   void initState() {
@@ -68,7 +67,6 @@ class _AuthGateState extends State<_AuthGate> {
     if (!mounted) return;
     
     if (!hasToken) {
-      setState(() => _loading = false);
       Navigator.of(context).pushReplacementNamed('/auth');
       return;
     }
@@ -80,14 +78,12 @@ class _AuthGateState extends State<_AuthGate> {
     if (userData == null) {
       // Token ungültig, ausloggen
       await _auth.logout();
-      setState(() => _loading = false);
       Navigator.of(context).pushReplacementNamed('/auth');
       return;
     }
     
     // Role-basiertes Routing
     final role = userData['role'] as String?;
-    setState(() => _loading = false);
     if (role == 'player') {
       Navigator.of(context).pushReplacementNamed('/player/dashboard');
     } else if (role == 'trainer') {
@@ -129,4 +125,10 @@ class _RoleBasedDashboard extends StatelessWidget {
       },
     );
   }
+}
+
+Future<void> someMethod(BuildContext context) async {
+  // ...existing code...
+  if (!context.mounted) return;
+  Navigator.pushReplacementNamed(context, '/dashboard');
 }
