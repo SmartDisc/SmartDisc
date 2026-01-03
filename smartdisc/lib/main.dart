@@ -78,6 +78,7 @@ class _AuthGateState extends State<_AuthGate> {
     if (userData == null) {
       // Token ungültig, ausloggen
       await _auth.logout();
+      if (!mounted) return;
       Navigator.of(context).pushReplacementNamed('/auth');
       return;
     }

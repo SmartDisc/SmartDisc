@@ -3,15 +3,26 @@
 
 // GET /api/stats/summary
 if ($path === "$prefix/stats/summary" && $method === 'GET') {
-  $count = $pdo->query("SELECT COUNT(*) AS c FROM messungen")->fetchColumn();
-  $rps = $pdo->query("SELECT MAX(geschwindigkeit) AS vmax, AVG(geschwindigkeit) AS vavg FROM wurfe")->fetch();
-  $height = $pdo->query("SELECT MAX(entfernung) AS dmax, AVG(entfernung) AS davg FROM wurfe")->fetch();
+  $stats = $pdo->query("
+    SELECT 
+      COUNT(*) AS count,
+      MAX(rotation) AS rotation_max,
+      AVG(rotation) AS rotation_avg,
+      MAX(hoehe) AS hoehe_max,
+      AVG(hoehe) AS hoehe_avg,
+      MAX(acceleration_max) AS acceleration_max,
+      AVG(acceleration_max) AS acceleration_avg
+    FROM wurfe 
+    WHERE geloescht = 0
+  ")->fetch();
   json_response([
-    'messungenCount'=> intval($count),
-    'geschwindigkeitMax'=> floatval($rps['vmax'] ?? 0),
-    'geschwindigkeitAvg'=> floatval($rps['vavg'] ?? 0),
-    'entfernungMax'=> floatval($height['dmax'] ?? 0),
-    'entfernungAvg'=> floatval($height['davg'] ?? 0),
+    'count'=> intval($stats['count'] ?? 0),
+    'rotationMax'=> floatval($stats['rotation_max'] ?? 0),
+    'rotationAvg'=> floatval($stats['rotation_avg'] ?? 0),
+    'hoeheMax'=> floatval($stats['hoehe_max'] ?? 0),
+    'hoeheAvg'=> floatval($stats['hoehe_avg'] ?? 0),
+    'accelerationMax'=> floatval($stats['acceleration_max'] ?? 0),
+    'accelerationAvg'=> floatval($stats['acceleration_avg'] ?? 0),
   ]);
 }
 

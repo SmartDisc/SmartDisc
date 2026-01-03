@@ -19,7 +19,6 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen> {
   final api = ApiService();
-  final AuthService _auth = AuthService();
 
   // DiscService-backed selectable discs
   final _discSvc = DiscService.instance();

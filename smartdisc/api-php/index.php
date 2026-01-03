@@ -15,8 +15,8 @@ $prefix = '/api';
 // Route-Dateien in gleicher Reihenfolge wie vorher laden
 require_once __DIR__ . '/routes/misc.php';      // health, ping
 require_once __DIR__ . '/routes/auth.php';      // register, login, me, logout
-require_once __DIR__ . '/routes/wurfe.php';     // GET list, GET by id, POST create, POST komplett
-require_once __DIR__ . '/routes/messungen.php'; // POST bulk, GET list, POST create
+require_once __DIR__ . '/routes/wurfe.php';     // GET list, GET by id, POST create
+// routes/messungen.php removed - raw sensor data is out of scope
 require_once __DIR__ . '/routes/stats.php';     // GET summary
 require_once __DIR__ . '/routes/revisionen.php'; // GET by table/id, GET list
 require_once __DIR__ . '/routes/export.php';    // GET CSV

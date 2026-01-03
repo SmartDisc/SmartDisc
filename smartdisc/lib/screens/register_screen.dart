@@ -47,15 +47,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
         passwordConfirm: _passwordConfirmController.text,
         role: _selectedRole,
       );
-      if (context.mounted) {
-        final role = await _auth.currentUserRole();
-        if (role == 'player') {
-          Navigator.of(context).pushReplacementNamed('/player/dashboard');
-        } else if (role == 'trainer') {
-          Navigator.of(context).pushReplacementNamed('/trainer/dashboard');
-        } else {
-          Navigator.of(context).pushReplacementNamed('/auth');
-        }
+      if (!context.mounted) return;
+      final role = await _auth.currentUserRole();
+      if (!context.mounted) return;
+      if (role == 'player') {
+        Navigator.of(context).pushReplacementNamed('/player/dashboard');
+      } else if (role == 'trainer') {
+        Navigator.of(context).pushReplacementNamed('/trainer/dashboard');
+      } else {
+        Navigator.of(context).pushReplacementNamed('/auth');
       }
     } catch (e) {
       if (!context.mounted) return;

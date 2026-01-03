@@ -43,27 +43,6 @@ class _DiscsScreenState extends State<DiscsScreen> {
     }
   }
 
-  Future<void> _addDisc() async {
-    final ctrl = TextEditingController();
-    final name = await showDialog<String?>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Add disc'),
-        content: TextField(
-          controller: ctrl,
-          decoration: const InputDecoration(hintText: 'DISC-01 or MyDisc'),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.of(ctx).pop(null), child: const Text('Cancel')),
-          ElevatedButton(onPressed: () => Navigator.of(ctx).pop(ctrl.text.trim()), child: const Text('Add')),
-        ],
-      ),
-    );
-
-    if (name == null || name.isEmpty) return;
-    await _svc.add(name);
-  }
-
   Future<void> _removeDisc(int idx) async {
     final ok = await showDialog<bool?>(
       context: context,

@@ -7,7 +7,7 @@ if (preg_match("#^$prefix/revisionen/([^/]+)/([^/]+)$#", $path, $matches) && $me
   $datensatzId = $matches[2];
   
   // Validierung der Tabelle
-  if (!in_array($tabelle, ['wurfe', 'messungen', 'scheiben'])) {
+  if (!in_array($tabelle, ['wurfe', 'scheiben'])) {
     json_response(['error'=>['code'=>'VALIDATION_ERROR','message'=>'Ungültige Tabelle']], 400);
   }
   
