@@ -3,15 +3,15 @@ import 'throw_model.dart';
 class StatsSummary {
   StatsSummary({
     required this.totalThrows,
-    required this.averageDistanceMeters,
-    required this.averageMaxHeightMeters,
-    required this.averageRotationRps,
+    required this.averageRotation,
+    required this.averageHeight,
+    required this.averageAccelerationMax,
   });
 
   final int totalThrows;
-  final double averageDistanceMeters;
-  final double averageMaxHeightMeters;
-  final double averageRotationRps;
+  final double averageRotation;
+  final double averageHeight;
+  final double averageAccelerationMax;
 
   factory StatsSummary.fromThrows(Iterable<Throw> throws) {
     final list = List<Throw>.from(throws);
@@ -19,26 +19,26 @@ class StatsSummary {
     if (total == 0) {
       return StatsSummary(
         totalThrows: 0,
-        averageDistanceMeters: 0.0,
-        averageMaxHeightMeters: 0.0,
-        averageRotationRps: 0.0,
+        averageRotation: 0.0,
+        averageHeight: 0.0,
+        averageAccelerationMax: 0.0,
       );
     }
 
-    double sumDist = 0.0;
+    double sumRotation = 0.0;
     double sumHeight = 0.0;
-    double sumRot = 0.0;
+    double sumAccel = 0.0;
     for (final t in list) {
-      sumDist += t.distanceMeters;
-      sumHeight += t.maxHeightMeters;
-      sumRot += t.maxRotationRps;
+      sumRotation += t.rotation;
+      sumHeight += t.height;
+      sumAccel += t.accelerationMax;
     }
 
     return StatsSummary(
       totalThrows: total,
-      averageDistanceMeters: sumDist / total,
-      averageMaxHeightMeters: sumHeight / total,
-      averageRotationRps: sumRot / total,
+      averageRotation: sumRotation / total,
+      averageHeight: sumHeight / total,
+      averageAccelerationMax: sumAccel / total,
     );
   }
 }

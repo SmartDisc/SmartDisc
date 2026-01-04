@@ -37,9 +37,9 @@ class ThrowListExample extends StatelessWidget {
             itemBuilder: (context, index) {
               final t = items[index];
               return ListTile(
-                title: Text('${t.distanceMeters.toStringAsFixed(2)} m — ${t.maxHeightMeters.toStringAsFixed(2)} m'),
+                title: Text('Rotation: ${t.rotation.toStringAsFixed(2)} rps — Height: ${t.height.toStringAsFixed(2)} m'),
                 subtitle: Text('${t.playerId} • ${t.timestamp.toLocal()}'),
-                trailing: Text('${t.maxRotationRps.toStringAsFixed(2)} rps'),
+                trailing: Text('${t.accelerationMax.toStringAsFixed(2)} m/s²'),
               );
             },
           );
