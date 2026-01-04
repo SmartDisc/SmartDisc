@@ -92,8 +92,9 @@ class _DiscsScreenState extends State<DiscsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (_loading)
+    if (_loading) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
     return Scaffold(
       body: _discs.isEmpty
           ? Center(
@@ -133,7 +134,6 @@ class _DiscsScreenState extends State<DiscsScreen> {
                 );
               },
             ),
-      // Add action moved to AppBar to avoid overlapping list item controls
     );
   }
 }

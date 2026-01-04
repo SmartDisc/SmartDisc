@@ -4,7 +4,6 @@ import 'package:model_viewer_plus/model_viewer_plus.dart';
 import 'package:intl/intl.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import '../services/api_service.dart';
-import '../services/auth_service.dart';
 import '../services/disc_service.dart';
 import '../styles/app_colors.dart';
 import '../styles/app_font.dart';
@@ -63,8 +62,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     setState(() {});
   }
 
-  // Helpers: convert units if you like
-  double _mpsToMph(num? v) => v == null ? 0 : v * 2.23693629;
 
   String _formatGermanTimestamp(String? iso) {
     if (iso == null || iso.isEmpty) return '-';
@@ -213,11 +210,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ),
                     StatCard(
                       icon: Icons.speed_rounded,
-                      label: 'Speed',
-                      value: latest != null && latest.geschwindigkeit != null
-                          ? '${latest.geschwindigkeit!.toStringAsFixed(2)} m/s\n${_mpsToMph(latest.geschwindigkeit!).toStringAsFixed(1)} mph'
+                      label: 'Acceleration',
+                      value: latest != null && latest.accelerationMax != null
+                          ? '${latest.accelerationMax!.toStringAsFixed(2)} m/s²'
                           : '-',
-                      sublabel: 'Latest measurement',
+                      sublabel: 'Maximum acceleration',
                     ),
                   ].map((c) => SizedBox(width: itemW.clamp(140.0, 420.0), child: c)).toList(),
                 );
@@ -238,26 +235,31 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 const ListTile(title: Text('No throws yet'))
               else
                 ...items.take(10).map((w) {
-                  final speed = w.geschwindigkeit != null ? '${w.geschwindigkeit!.toStringAsFixed(1)} m/s' : '-';
-                  final dist = w.entfernung != null ? '${w.entfernung!.toStringAsFixed(1)} m' : '-';
                   final rot = w.rotation != null ? '${w.rotation!.toStringAsFixed(2)} rps' : null;
+                  final height = w.hoehe != null ? '${w.hoehe!.toStringAsFixed(2)} m' : null;
+                  final accel = w.accelerationMax != null ? '${w.accelerationMax!.toStringAsFixed(2)} m/s²' : null;
+                  
+                  final measurements = <String>[];
+                  if (rot != null) measurements.add('Rot: $rot');
+                  if (height != null) measurements.add('H: $height');
+                  if (accel != null) measurements.add('A: $accel');
+                  
                   return Card(
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     child: ListTile(
                       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                       dense: true,
-                      // no leading avatar — keep layout minimal
                       title: Text(w.scheibeId ?? '-', style: const TextStyle(fontWeight: FontWeight.w700)),
                       subtitle: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Text(speed, style: const TextStyle(fontWeight: FontWeight.w600)),
+                          if (measurements.isNotEmpty)
+                            Text(measurements.join(' • '), style: AppFont.subheadline),
                           const SizedBox(height: 2),
-                          Text('$dist • ${_formatGermanTimestamp(w.erstelltAm)}', style: AppFont.subheadline, maxLines: 1, overflow: TextOverflow.ellipsis),
+                          Text(_formatGermanTimestamp(w.erstelltAm), style: AppFont.subheadline, maxLines: 1, overflow: TextOverflow.ellipsis),
                         ],
                       ),
-                      trailing: rot != null ? Text(rot, style: const TextStyle(fontSize: 12)) : null,
                     ),
                   );
                 }),

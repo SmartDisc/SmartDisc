@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import '../styles/app_font.dart';
 import '../services/api_service.dart';
+import '../services/disc_service.dart';
 import '../models/wurf.dart';
 
 class HistoryScreen extends StatefulWidget {
@@ -14,6 +15,7 @@ class HistoryScreen extends StatefulWidget {
 
 class _HistoryScreenState extends State<HistoryScreen> {
   final ApiService _api = ApiService();
+  final DiscService _discService = DiscService.instance();
   late Future<List<Wurf>> _wurfeF;
   bool _localeReady = false;
 
@@ -23,7 +25,21 @@ class _HistoryScreenState extends State<HistoryScreen> {
     initializeDateFormatting('de_AT').then((_) {
       if (mounted) setState(() => _localeReady = true);
     });
+    _initDiscs();
     _reload();
+  }
+
+  Future<void> _initDiscs() async {
+    await _discService.init();
+  }
+
+  String _getDiscDisplayName(String? discId) {
+    if (discId == null || discId.isEmpty) return '-';
+    final disc = _discService.discs.value.firstWhere(
+      (d) => (d['id'] as String?) == discId,
+      orElse: () => {},
+    );
+    return (disc['name'] as String?) ?? discId;
   }
 
   void _reload() {
@@ -61,10 +77,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
             allItems.add(Wurf(
               id: extraId,
               scheibeId: 'DISC-01',
-              entfernung: 27.5,
-              geschwindigkeit: 9.8,
               rotation: 4.2,
               hoehe: 2.1,
+              accelerationMax: 11.5,
               erstelltAm: oneWeekAgo.toIso8601String(),
             ));
           }
@@ -104,20 +119,28 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 final key = sessionKeys[idx];
                 final list = sessionsMap[key]!;
                 final count = list.length;
-                final speeds = list.where((x) => x.geschwindigkeit != null).map((x) => x.geschwindigkeit!).toList();
-                final avgSpeed = speeds.isEmpty ? 0.0 : speeds.fold<double>(0, (a, b) => a + b) / speeds.length;
-                final maxDist = list.map((x) => x.entfernung ?? 0).fold<double>(0, (mx, v) => v > mx ? v : mx);
+                final rotations = list.where((x) => x.rotation != null).map((x) => x.rotation!).toList();
+                final avgRotation = rotations.isEmpty ? 0.0 : rotations.fold<double>(0, (a, b) => a + b) / rotations.length;
+                final maxHeight = list.map((x) => x.hoehe ?? 0).fold<double>(0, (mx, v) => v > mx ? v : mx);
 
                 return Card(
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   child: ExpansionTile(
                     title: Text('$key • $count throws'),
-                    subtitle: Text('Avg: ${avgSpeed.toStringAsFixed(2)} m/s • Max d: ${maxDist.toStringAsFixed(1)} m'),
-                    children: list.map((w) => ListTile(
-                          title: Text(_formatGermanTimestamp(w.erstelltAm)),
-                          subtitle: Text(
-                              'Disc: ${w.scheibeId ?? '-'}  •  v=${w.geschwindigkeit != null ? w.geschwindigkeit!.toStringAsFixed(1) : '-'} m/s  •  d=${w.entfernung != null ? w.entfernung!.toStringAsFixed(1) : '-'} m'),
-                        )).toList(),
+                    subtitle: Text('Avg Rot: ${avgRotation.toStringAsFixed(2)} rps • Max H: ${maxHeight.toStringAsFixed(1)} m'),
+                    children: list.map((w) {
+                      final measurements = <String>[];
+                      if (w.rotation != null) measurements.add('Rot: ${w.rotation!.toStringAsFixed(2)} rps');
+                      if (w.hoehe != null) measurements.add('H: ${w.hoehe!.toStringAsFixed(2)} m');
+                      if (w.accelerationMax != null) measurements.add('A: ${w.accelerationMax!.toStringAsFixed(2)} m/s²');
+                      
+                      final discName = _getDiscDisplayName(w.scheibeId);
+                      
+                      return ListTile(
+                        title: Text(_formatGermanTimestamp(w.erstelltAm)),
+                        subtitle: Text('Disc: $discName${measurements.isNotEmpty ? '  •  ${measurements.join('  •  ')}' : ''}'),
+                      );
+                    }).toList(),
                   ),
                 );
               },

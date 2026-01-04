@@ -1,16 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import '../services/api_service.dart';
+import '../services/disc_service.dart';
 import '../models/wurf.dart';
 import '../styles/app_colors.dart';
 import '../styles/app_font.dart';
 
 enum YAxisMetric {
-  distance, // Entfernung (disc/time initially)
   rotation, // Rotation
   height, // Höhe
-  speed, // Geschwindigkeit
-  timestamp, // DISC7TIME - when played
+  acceleration, // Maximum acceleration
 }
 
 class AnalysisScreen extends StatefulWidget {
@@ -22,16 +21,37 @@ class AnalysisScreen extends StatefulWidget {
 
 class _AnalysisScreenState extends State<AnalysisScreen> {
   final ApiService _apiService = ApiService();
+  final DiscService _discService = DiscService.instance();
   List<Wurf> _wurfe = [];
   List<Wurf> _allWurfe = []; // Store all wurfe for filtering
   bool _isLoading = true;
-  YAxisMetric _selectedMetric = YAxisMetric.distance;
+  YAxisMetric _selectedMetric = YAxisMetric.rotation;
   String? _selectedDisc; // null = "Alle"
 
   @override
   void initState() {
     super.initState();
+    _initDiscs();
     _loadWurfe();
+  }
+
+  Future<void> _initDiscs() async {
+    await _discService.init();
+    // Listen for disc changes and reload data
+    _discService.discs.addListener(_onDiscsChanged);
+  }
+
+  void _onDiscsChanged() {
+    if (mounted) {
+      // Reload data to get any new throws from newly added discs
+      _loadWurfe();
+    }
+  }
+
+  @override
+  void dispose() {
+    _discService.discs.removeListener(_onDiscsChanged);
+    super.dispose();
   }
 
   Future<void> _loadWurfe() async {
@@ -61,55 +81,34 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
 
   String _getMetricLabel(YAxisMetric metric) {
     switch (metric) {
-      case YAxisMetric.distance:
-        return 'Distance (m)';
       case YAxisMetric.rotation:
         return 'Rotation (rps)';
       case YAxisMetric.height:
         return 'Height (m)';
-      case YAxisMetric.speed:
-        return 'Speed (m/s)';
-      case YAxisMetric.timestamp:
-        return 'Hours since first throw (h)';
+      case YAxisMetric.acceleration:
+        return 'Maximum Acceleration (m/s²)';
     }
   }
 
   String _getMetricDisplayName(YAxisMetric metric) {
     switch (metric) {
-      case YAxisMetric.distance:
-        return 'Distance';
       case YAxisMetric.rotation:
         return 'Rotation';
       case YAxisMetric.height:
         return 'Height';
-      case YAxisMetric.speed:
-        return 'Speed';
-      case YAxisMetric.timestamp:
-        return 'DISC7TIME';
+      case YAxisMetric.acceleration:
+        return 'Acceleration';
     }
   }
 
   double? _getMetricValue(Wurf wurf, YAxisMetric metric) {
     switch (metric) {
-      case YAxisMetric.distance:
-        return wurf.entfernung;
       case YAxisMetric.rotation:
         return wurf.rotation;
       case YAxisMetric.height:
         return wurf.hoehe;
-      case YAxisMetric.speed:
-        return wurf.geschwindigkeit;
-      case YAxisMetric.timestamp:
-        // For timestamp, show hours since first throw (or absolute hours if no first throw)
-        if (_wurfe.isEmpty) return null;
-        final firstTime = _wurfe.first.erstelltAm != null
-            ? DateTime.parse(_wurfe.first.erstelltAm!)
-            : DateTime.now();
-        if (wurf.erstelltAm != null) {
-          final throwTime = DateTime.parse(wurf.erstelltAm!);
-          return throwTime.difference(firstTime).inHours.toDouble();
-        }
-        return null;
+      case YAxisMetric.acceleration:
+        return wurf.accelerationMax;
     }
   }
 
@@ -136,13 +135,13 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
     // Group by integer hour (so each integer X has a single Y value).
     final Map<int, List<double>> grouped = {};
     for (final wurf in _wurfe) {
-      final timestamp = wurf.erstelltAm != null
-          ? DateTime.parse(wurf.erstelltAm!)
-          : DateTime.now();
-      final xInt = timestamp.difference(firstTime).inHours;
-      final yValue = _getMetricValue(wurf, _selectedMetric);
-      if (yValue != null) {
-        grouped.putIfAbsent(xInt, () => []).add(yValue);
+      if (wurf.erstelltAm != null) {
+        final timestamp = DateTime.parse(wurf.erstelltAm!);
+        final xInt = timestamp.difference(firstTime).inHours;
+        final yValue = _getMetricValue(wurf, _selectedMetric);
+        if (yValue != null) {
+          grouped.putIfAbsent(xInt, () => []).add(yValue);
+        }
       }
     }
 
@@ -158,20 +157,49 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
   }
 
   String _formatXAxisLabel(double value) {
-    // Show time in days: 1d, 2d, 3d, etc.
-    final days = (value / 24).round();
-    return '${days >= 0 ? days : 0}d';
+    // Show time in hours, or days if > 24h
+    if (value >= 24) {
+      final days = (value / 24).round();
+      return '${days}d';
+    }
+    return '${value.round()}h';
   }
 
-  List<String> _getAvailableDiscs() {
-    final discs = <String>{};
-    for (final wurf in _allWurfe) {
-      if (wurf.scheibeId != null && wurf.scheibeId!.isNotEmpty) {
-        discs.add(wurf.scheibeId!);
+  List<Map<String, String>> _getAvailableDiscs() {
+    // Get discs from DiscService (backend-managed) - these are the source of truth
+    final discMap = <String, String>{}; // id -> display name
+    
+    // First, add all discs from backend
+    for (final disc in _discService.discs.value) {
+      final id = (disc['id'] as String?) ?? '';
+      if (id.isNotEmpty) {
+        discMap[id] = (disc['name'] as String?) ?? id;
       }
     }
-    final sortedDiscs = discs.toList()..sort();
-    return sortedDiscs;
+    
+    // Also include any disc IDs from throws (in case there's data for a disc that's been deleted)
+    for (final wurf in _allWurfe) {
+      if (wurf.scheibeId != null && wurf.scheibeId!.isNotEmpty) {
+        if (!discMap.containsKey(wurf.scheibeId)) {
+          discMap[wurf.scheibeId!] = wurf.scheibeId!;
+        }
+      }
+    }
+    
+    // Convert to list of maps for easier handling
+    return discMap.entries
+        .map((e) => {'id': e.key, 'name': e.value})
+        .toList()
+      ..sort((a, b) => (a['id'] ?? '').compareTo(b['id'] ?? ''));
+  }
+
+  String _getDiscDisplayName(String? discId) {
+    if (discId == null || discId.isEmpty) return '-';
+    final disc = _discService.discs.value.firstWhere(
+      (d) => (d['id'] as String?) == discId,
+      orElse: () => {},
+    );
+    return (disc['name'] as String?) ?? discId;
   }
 
   void _applyDiscFilter() {
@@ -213,10 +241,12 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                           value: null,
                           child: Text('All', style: AppFont.body),
                         ),
-                        ..._getAvailableDiscs().map((disc) {
+                        ..._getAvailableDiscs().map((discInfo) {
+                          final discId = discInfo['id'] ?? '';
+                          final discName = discInfo['name'] ?? discId;
                           return DropdownMenuItem<String?>(
-                            value: disc,
-                            child: Text(disc, style: AppFont.body),
+                            value: discId,
+                            child: Text(discName, style: AppFont.body),
                           );
                         }),
                       ],
@@ -305,13 +335,42 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                                 ),
                                 const SizedBox(height: 8),
                                 Text(
-                                  'Y-Axis: ${_getMetricLabel(_selectedMetric)}',
+                                  'X-Axis: Time (since first throw) • Y-Axis: ${_getMetricLabel(_selectedMetric)}',
                                   style: AppFont.caption,
                                 ),
                                 const SizedBox(height: 16),
                                 Expanded(
-                                  child: LineChart(
-                                    LineChartData(
+                                  child: Builder(
+                                    builder: (context) {
+                                      final spots = _getChartSpots();
+                                      if (spots.isEmpty) {
+                                        return Center(
+                                          child: Column(
+                                            mainAxisAlignment: MainAxisAlignment.center,
+                                            children: [
+                                              Icon(
+                                                Icons.show_chart,
+                                                size: 48,
+                                                color: AppColors.textMuted,
+                                              ),
+                                              const SizedBox(height: 12),
+                                              Text(
+                                                'No data points available',
+                                                style: AppFont.body,
+                                                textAlign: TextAlign.center,
+                                              ),
+                                              const SizedBox(height: 4),
+                                              Text(
+                                                'Select a different metric or disc filter',
+                                                style: AppFont.caption,
+                                                textAlign: TextAlign.center,
+                                              ),
+                                            ],
+                                          ),
+                                        );
+                                      }
+                                      return LineChart(
+                                        LineChartData(
                                       gridData: FlGridData(
                                         show: true,
                                         drawVerticalLine: false,
@@ -369,12 +428,12 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                                         ),
                                       ),
                                       minX: 0,
-                                      maxX: _getMaxX(),
+                                      maxX: _getMaxX().clamp(0.0, double.infinity),
                                       minY: _getMinY(),
                                       maxY: _getMaxY(),
                                       lineBarsData: [
                                         LineChartBarData(
-                                          spots: _getChartSpots(),
+                                          spots: spots,
                                           isCurved: true,
                                           color: AppColors.primary,
                                           barWidth: 3,
@@ -397,6 +456,8 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                                         ),
                                       ],
                                     ),
+                                      );
+                                    },
                                   ),
                                 ),
                               ],
@@ -510,7 +571,13 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
         .toList();
     if (values.isEmpty) return 0.0;
     final min = values.reduce((a, b) => a < b ? a : b);
-    return (min * 0.9).clamp(0.0, double.infinity);
+    final minValue = (min * 0.9).clamp(0.0, double.infinity);
+    // Ensure minY is always less than maxY
+    final maxValue = _getMaxY();
+    if (minValue >= maxValue) {
+      return maxValue > 0 ? maxValue * 0.9 : 0.0;
+    }
+    return minValue;
   }
 
   double _getMaxY() {
@@ -520,7 +587,12 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
         .toList();
     if (values.isEmpty) return 10.0;
     final max = values.reduce((a, b) => a > b ? a : b);
-    return max * 1.1;
+    final min = values.reduce((a, b) => a < b ? a : b);
+    // If all values are the same, add padding to prevent minY == maxY
+    if (max == min) {
+      return max + (max == 0 ? 1.0 : max * 0.2);
+    }
+    return (max * 1.1).clamp(0.0, double.infinity);
   }
 
   double _getAverageValue() {
