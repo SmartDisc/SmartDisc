@@ -1,7 +1,7 @@
 <?php
-// Wurfe routes: GET list, GET by id, POST create
+// Throw routes
 
-// GET /api/wurfe - List all throws
+// List throws
 if ($path === "$prefix/wurfe" && $method === 'GET') {
   $limit = isset($_GET['limit']) ? max(1, min(500, intval($_GET['limit']))) : 100;
   $where = ['geloescht = 0'];
@@ -21,7 +21,7 @@ if ($path === "$prefix/wurfe" && $method === 'GET') {
   json_response(['items'=>$items, 'count'=>count($items)]);
 }
 
-// GET /api/wurfe/:id - Get single throw
+// Get single throw
 if (preg_match("#^$prefix/wurfe/([^/]+)$#", $path, $matches) && $method === 'GET') {
   $wurfId = $matches[1];
   $stmt = $pdo->prepare("SELECT * FROM wurfe WHERE id = :id AND geloescht = 0");
@@ -33,12 +33,37 @@ if (preg_match("#^$prefix/wurfe/([^/]+)$#", $path, $matches) && $method === 'GET
   json_response($wurf);
 }
 
-// POST /api/wurfe - Create a throw
+// Create throw
 if ($path === "$prefix/wurfe" && $method === 'POST') {
   $input = get_json_input();
+  
+  // Check required fields
   if (empty($input['scheibe_id'])) {
     json_response(['error'=>['code'=>'VALIDATION_ERROR','message'=>'scheibe_id ist erforderlich']], 400);
+    exit;
   }
+  
+  // Need at least one measurement value
+  $hasRotation = isset($input['rotation']) && is_numeric($input['rotation']);
+  $hasHeight = isset($input['hoehe']) && is_numeric($input['hoehe']);
+  $hasAccel = isset($input['acceleration_max']) && is_numeric($input['acceleration_max']);
+  
+  if (!$hasRotation && !$hasHeight && !$hasAccel) {
+    json_response(['error'=>['code'=>'VALIDATION_ERROR','message'=>'Mindestens einer der Werte (rotation, hoehe, acceleration_max) muss angegeben werden']], 400);
+    exit;
+  }
+  
+  // Convert to numbers
+  if ($hasRotation) {
+    $input['rotation'] = floatval($input['rotation']);
+  }
+  if ($hasHeight) {
+    $input['hoehe'] = floatval($input['hoehe']);
+  }
+  if ($hasAccel) {
+    $input['acceleration_max'] = floatval($input['acceleration_max']);
+  }
+  
   $id = $input['id'] ?? ('wurf_' . bin2hex(random_bytes(8)) . '_' . time());
   $stmt = $pdo->prepare("
     INSERT INTO wurfe (
@@ -52,9 +77,9 @@ if ($path === "$prefix/wurfe" && $method === 'POST') {
       ':id'=>$id,
       ':scheibe_id'=>$input['scheibe_id'],
       ':player_id'=>$input['player_id'] ?? null,
-      ':rotation'=>$input['rotation'] ?? null,
-      ':hoehe'=>$input['hoehe'] ?? null,
-      ':acceleration_max'=>$input['acceleration_max'] ?? null
+      ':rotation'=>$hasRotation ? $input['rotation'] : null,
+      ':hoehe'=>$hasHeight ? $input['hoehe'] : null,
+      ':acceleration_max'=>$hasAccel ? $input['acceleration_max'] : null
     ]);
     log_audit('wurfe', $id, 'INSERT', null, $input);
     json_response(['id'=>$id, 'message'=>'Wurf erfolgreich erstellt'], 201);

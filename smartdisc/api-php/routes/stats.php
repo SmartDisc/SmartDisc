@@ -1,7 +1,5 @@
 <?php
-// Stats routes: GET summary
-
-// GET /api/stats/summary
+// Stats endpoint
 if ($path === "$prefix/stats/summary" && $method === 'GET') {
   $stats = $pdo->query("
     SELECT 
@@ -19,8 +17,8 @@ if ($path === "$prefix/stats/summary" && $method === 'GET') {
     'count'=> intval($stats['count'] ?? 0),
     'rotationMax'=> floatval($stats['rotation_max'] ?? 0),
     'rotationAvg'=> floatval($stats['rotation_avg'] ?? 0),
-    'hoeheMax'=> floatval($stats['hoehe_max'] ?? 0),
-    'hoeheAvg'=> floatval($stats['hoehe_avg'] ?? 0),
+    'heightMax'=> floatval($stats['hoehe_max'] ?? 0),
+    'heightAvg'=> floatval($stats['hoehe_avg'] ?? 0),
     'accelerationMax'=> floatval($stats['acceleration_max'] ?? 0),
     'accelerationAvg'=> floatval($stats['acceleration_avg'] ?? 0),
   ]);

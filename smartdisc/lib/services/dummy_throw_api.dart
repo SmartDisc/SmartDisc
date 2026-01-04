@@ -4,7 +4,7 @@ import '../models/throw_model.dart';
 import '../models/stats_summary.dart';
 import 'throw_api.dart';
 
-/// Dummy in-memory implementation of [ThrowApi].
+/// In-memory dummy implementation for testing
 class DummyThrowApi implements ThrowApi {
   DummyThrowApi() {
     _init();
@@ -55,7 +55,6 @@ class DummyThrowApi implements ThrowApi {
         height: 5.2,
         accelerationMax: 18.7,
       ),
-      // additional dummy players p4, p5, p6
       Throw(
         id: 't6',
         playerId: 'p4',
@@ -85,7 +84,6 @@ class DummyThrowApi implements ThrowApi {
 
   @override
   Future<List<Throw>> getThrows() async {
-    // small artificial delay
     await Future<void>.delayed(const Duration(milliseconds: 200));
     return List<Throw>.from(_store);
   }
@@ -98,6 +96,27 @@ class DummyThrowApi implements ThrowApi {
     } catch (_) {
       throw Exception('Throw $id not found');
     }
+  }
+
+  @override
+  Future<Throw> createThrow({
+    required String scheibeId,
+    String? playerId,
+    required double rotation,
+    required double height,
+    required double accelerationMax,
+  }) async {
+    await Future<void>.delayed(const Duration(milliseconds: 150));
+    final throw_ = Throw(
+      id: 't_${DateTime.now().millisecondsSinceEpoch}',
+      playerId: playerId ?? 'p1',
+      timestamp: DateTime.now(),
+      rotation: rotation,
+      height: height,
+      accelerationMax: accelerationMax,
+    );
+    _store.insert(0, throw_);
+    return throw_;
   }
 
   @override

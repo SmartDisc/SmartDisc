@@ -41,4 +41,14 @@ class StatsSummary {
       averageAccelerationMax: sumAccel / total,
     );
   }
+
+  /// Parse from API response
+  factory StatsSummary.fromJson(Map<String, dynamic> json) {
+    return StatsSummary(
+      totalThrows: (json['count'] as num?)?.toInt() ?? 0,
+      averageRotation: (json['rotationAvg'] as num?)?.toDouble() ?? 0.0,
+      averageHeight: (json['heightAvg'] as num?)?.toDouble() ?? 0.0,
+      averageAccelerationMax: (json['accelerationAvg'] as num?)?.toDouble() ?? 0.0,
+    );
+  }
 }
