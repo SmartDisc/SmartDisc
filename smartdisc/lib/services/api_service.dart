@@ -76,16 +76,13 @@ class ApiService {
       return Wurf(
         id: id,
         scheibeId: disc,
-        entfernung: double.parse(
-          ((rnd.nextDouble() * 50) + 8).toStringAsFixed(1),
-        ),
-        geschwindigkeit: double.parse(
-          (rnd.nextDouble() * 14 + 3).toStringAsFixed(2),
-        ),
         rotation: double.parse(
           (rnd.nextDouble() * 12 + 0.3).toStringAsFixed(2),
         ),
         hoehe: double.parse((rnd.nextDouble() * 7 + 0.2).toStringAsFixed(2)),
+        accelerationMax: double.parse(
+          (rnd.nextDouble() * 15 + 5).toStringAsFixed(2),
+        ),
         erstelltAm: ms.toIso8601String(),
       );
     });
