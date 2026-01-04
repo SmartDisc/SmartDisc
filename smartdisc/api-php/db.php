@@ -14,9 +14,8 @@ try {
   echo json_encode(['error' => ['code'=>'DB_CONNECT_ERROR','message'=>$e->getMessage()]]);
   exit;
 }
-// Simplified database structure - only stores aggregated throw data
+
 $pdo->exec("
--- Table for throw data (simplified - only stores aggregated values from hardware)
 CREATE TABLE IF NOT EXISTS wurfe (
     id TEXT PRIMARY KEY,
     scheibe_id TEXT NOT NULL,

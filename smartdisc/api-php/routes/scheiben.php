@@ -1,9 +1,8 @@
 <?php
-// Scheiben routes: GET list, POST create
 
 // GET /api/scheiben - Liste aller Messsysteme/Scheiben
 if ($path === "$prefix/scheiben" && $method === 'GET') {
-  $stmt = $pdo->query("SELECT * FROM scheiben WHERE aktiv = 1 ORDER BY erstellt_am DESC");
+  $stmt = $pdo->query("SELECT id, name, modell, seriennummer, firmware_version, kalibrierungsdatum, erstellt_am FROM scheiben WHERE aktiv = 1 ORDER BY erstellt_am DESC");
   json_response(['items' => $stmt->fetchAll()]);
 }
 
@@ -12,6 +11,7 @@ if ($path === "$prefix/scheiben" && $method === 'POST') {
   $input = get_json_input();
   if (empty($input['id'])) {
     json_response(['error'=>['code'=>'VALIDATION_ERROR','message'=>'id ist erforderlich']], 400);
+    exit;
   }
   $stmt = $pdo->prepare("
     INSERT INTO scheiben (id, name, modell, seriennummer, firmware_version, kalibrierungsdatum)
@@ -30,6 +30,24 @@ if ($path === "$prefix/scheiben" && $method === 'POST') {
     json_response(['id' => $input['id'], 'message' => 'Messsystem erfolgreich registriert'], 201);
   } catch (Exception $e) {
     json_response(['error'=>['code'=>'INSERT_FAILED','message'=>$e->getMessage()]], 500);
+    exit;
+  }
+}
+
+if (preg_match("~^$prefix/scheiben/([^/]+)$~", $path, $m) && $method === 'DELETE') {
+  $id = urldecode($m[1]);
+  $stmt = $pdo->prepare("UPDATE scheiben SET aktiv = 0 WHERE id = :id");
+  try {
+    $stmt->execute([':id' => $id]);
+    if ($stmt->rowCount() === 0) {
+      json_response(['error'=>['code'=>'NOT_FOUND','message'=>'Messsystem nicht gefunden']], 404);
+      exit;
+    }
+    log_audit('scheiben', $id, 'DELETE', null, ['aktiv' => 0]);
+    json_response(['message' => 'Messsystem deaktiviert'], 200);
+  } catch (Exception $e) {
+    json_response(['error'=>['code'=>'DELETE_FAILED','message'=>$e->getMessage()]], 500);
+    exit;
   }
 }
 

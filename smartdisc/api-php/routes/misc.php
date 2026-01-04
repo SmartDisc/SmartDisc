@@ -1,5 +1,4 @@
 <?php
-// Misc routes: health, ping
 
 // GET /api/health
 if ($path === "$prefix/health") {

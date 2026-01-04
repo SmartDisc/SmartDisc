@@ -12,7 +12,7 @@ if ($path === "$prefix/wurfe" && $method === 'GET') {
   if (isset($_GET['from'])) { $where[] = "erstellt_am >= :from"; $params[':from'] = $_GET['from']; }
   if (isset($_GET['to'])) { $where[] = "erstellt_am <= :to"; $params[':to'] = $_GET['to']; }
 
-  $sql = "SELECT * FROM wurfe WHERE " . implode(" AND ", $where) . " ORDER BY erstellt_am DESC LIMIT :limit";
+  $sql = "SELECT id, scheibe_id, player_id, rotation, hoehe, acceleration_max, erstellt_am FROM wurfe WHERE " . implode(" AND ", $where) . " ORDER BY erstellt_am DESC LIMIT :limit";
   $stmt = $pdo->prepare($sql);
   foreach ($params as $k=>$v) { if($k!==':limit'){ $stmt->bindValue($k, $v); } }
   $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
@@ -24,11 +24,12 @@ if ($path === "$prefix/wurfe" && $method === 'GET') {
 // Get single throw
 if (preg_match("#^$prefix/wurfe/([^/]+)$#", $path, $matches) && $method === 'GET') {
   $wurfId = $matches[1];
-  $stmt = $pdo->prepare("SELECT * FROM wurfe WHERE id = :id AND geloescht = 0");
+  $stmt = $pdo->prepare("SELECT id, scheibe_id, player_id, rotation, hoehe, acceleration_max, erstellt_am FROM wurfe WHERE id = :id AND geloescht = 0");
   $stmt->execute([':id' => $wurfId]);
   $wurf = $stmt->fetch();
   if (!$wurf) {
     json_response(['error'=>['code'=>'NOT_FOUND','message'=>'Wurf nicht gefunden']], 404);
+    exit;
   }
   json_response($wurf);
 }

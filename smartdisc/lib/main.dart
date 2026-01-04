@@ -129,7 +129,6 @@ class _RoleBasedDashboard extends StatelessWidget {
 }
 
 Future<void> someMethod(BuildContext context) async {
-  // ...existing code...
   if (!context.mounted) return;
   Navigator.pushReplacementNamed(context, '/dashboard');
 }
