@@ -90,6 +90,18 @@ CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
 CREATE INDEX IF NOT EXISTS idx_auth_tokens_token ON auth_tokens(token);
 CREATE INDEX IF NOT EXISTS idx_auth_tokens_user_id ON auth_tokens(user_id);
 
+-- Table for highscores (best values per user)
+CREATE TABLE IF NOT EXISTS highscores (
+    user_id TEXT PRIMARY KEY,
+    best_rotation REAL,
+    best_hoehe REAL,
+    best_acceleration_max REAL,
+    updated_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')) NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_highscores_user_id ON highscores(user_id);
+
 -- Triggers for automatic audit logging
 CREATE TRIGGER IF NOT EXISTS trigger_wurfe_update AFTER UPDATE ON wurfe
 BEGIN

@@ -4,9 +4,23 @@ import 'dart:math';
 import 'package:http/http.dart' as http;
 import '../env.dart';
 import '../models/wurf.dart';
+import 'auth_service.dart';
 
 class ApiService {
   final http.Client _client = http.Client();
+  final AuthService _authService = AuthService();
+
+  // Helper: Get auth headers with token
+  Future<Map<String, String>> _getAuthHeaders() async {
+    final token = await _authService.getAuthToken();
+    final headers = <String, String>{
+      'Content-Type': 'application/json',
+    };
+    if (token != null && token.isNotEmpty) {
+      headers['Authorization'] = 'Bearer $token';
+    }
+    return headers;
+  }
 
   Uri _u(String path, [Map<String, dynamic>? q]) => Uri.parse(
     '$apiBaseUrl$path',
@@ -109,14 +123,15 @@ class ApiService {
 
   // ---- CREATE ----
   /// Create a new throw with aggregated sensor data
-  /// Returns the created throw ID
-  Future<String> createThrow({
+  /// Returns a map with 'id' and optionally 'is_new_record' and 'record_type'
+  Future<Map<String, dynamic>> createThrow({
     required String scheibeId,
     String? playerId,
     required double rotation,
     required double height,
     required double accelerationMax,
   }) async {
+    final headers = await _getAuthHeaders();
     final payload = {
       'scheibe_id': scheibeId,
       if (playerId != null) 'player_id': playerId,
@@ -126,7 +141,7 @@ class ApiService {
     };
     final res = await _client.post(
       _u('/wurfe'),
-      headers: {'Content-Type': 'application/json'},
+      headers: headers,
       body: jsonEncode(payload),
     );
     if (res.statusCode != 201) {
@@ -135,7 +150,11 @@ class ApiService {
       throw Exception('createThrow failed: ${res.statusCode} - $errorMsg');
     }
     final response = jsonDecode(res.body) as Map<String, dynamic>;
-    return response['id'] as String;
+    return {
+      'id': response['id'] as String,
+      'is_new_record': response['is_new_record'] ?? false,
+      'record_type': response['record_type'] as String?,
+    };
   }
 
   /// Create a new disc in the backend

@@ -1,13 +1,16 @@
 import 'package:flutter/material.dart';
 import 'dart:math' as math;
+import 'dart:math' as math_random;
 import 'package:model_viewer_plus/model_viewer_plus.dart';
 import 'package:intl/intl.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import '../services/api_service.dart';
 import '../services/disc_service.dart';
+import '../services/auth_service.dart';
 import '../styles/app_colors.dart';
 import '../styles/app_font.dart';
 import '../widgets/stat_card.dart';
+import '../widgets/highscore_helper.dart';
 import '../models/wurf.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -60,6 +63,42 @@ class _DashboardScreenState extends State<DashboardScreen> {
   void _reload() {
     _wurfeF = api.getWuerfe(limit: 50, scheibeId: selectedDisc);
     setState(() {});
+  }
+
+  Future<void> _createTestThrow() async {
+    try {
+      final auth = AuthService();
+      final userId = await auth.currentUserId();
+      
+      if (userId == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Bitte einloggen')),
+        );
+        return;
+      }
+
+      final rnd = math_random.Random();
+      // Erstelle einen Wurf mit zufälligen Werten (hohe Werte für bessere Chance auf Highscore)
+      final result = await api.createThrow(
+        scheibeId: selectedDisc,
+        playerId: userId,
+        rotation: 5.0 + rnd.nextDouble() * 10, // 5-15 rps
+        height: 2.0 + rnd.nextDouble() * 5, // 2-7 m
+        accelerationMax: 8.0 + rnd.nextDouble() * 10, // 8-18 m/s²
+      );
+
+      // Prüfe ob neuer Rekord
+      if (result['is_new_record'] == true && result['record_type'] != null) {
+        showHighscorePopup(context, result['record_type'] as String);
+      }
+
+      // Reload data
+      _reload();
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Fehler: $e')),
+      );
+    }
   }
 
 
@@ -220,6 +259,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 );
               }),
 
+              const SizedBox(height: 24),
+              // Test Button für Highscore
+              ElevatedButton.icon(
+                onPressed: _createTestThrow,
+                icon: const Icon(Icons.add_circle_outline),
+                label: const Text('Test Wurf erstellen (Highscore Demo)'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.bluePrimary,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                ),
+              ),
               const SizedBox(height: 24),
               Text('Latest throws', style: AppFont.headline),
 

@@ -163,6 +163,11 @@ class AuthService {
     return prefs.getString(_roleKey);
   }
 
+  Future<String?> currentUserId() async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_userIdKey);
+  }
+
   Future<String?> getAuthToken() async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     return prefs.getString(_tokenKey);

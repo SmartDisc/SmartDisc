@@ -83,7 +83,69 @@ if ($path === "$prefix/wurfe" && $method === 'POST') {
       ':acceleration_max'=>$hasAccel ? $input['acceleration_max'] : null
     ]);
     log_audit('wurfe', $id, 'INSERT', null, $input);
-    json_response(['id'=>$id, 'message'=>'Wurf erfolgreich erstellt'], 201);
+    
+    // Check for new highscore records
+    $isNewRecord = false;
+    $recordType = null;
+    $playerId = $input['player_id'] ?? null;
+    
+    if ($playerId) {
+      // Get current highscores
+      $hsStmt = $pdo->prepare("SELECT * FROM highscores WHERE user_id = :user_id");
+      $hsStmt->execute([':user_id' => $playerId]);
+      $current = $hsStmt->fetch();
+      
+      $newRotation = $hasRotation && ($current === false || $current['best_rotation'] === null || $input['rotation'] > $current['best_rotation']);
+      $newHoehe = $hasHeight && ($current === false || $current['best_hoehe'] === null || $input['hoehe'] > $current['best_hoehe']);
+      $newAccel = $hasAccel && ($current === false || $current['best_acceleration_max'] === null || $input['acceleration_max'] > $current['best_acceleration_max']);
+      
+      if ($newRotation || $newHoehe || $newAccel) {
+        $isNewRecord = true;
+        if ($newRotation) $recordType = 'rotation';
+        elseif ($newHoehe) $recordType = 'hoehe';
+        elseif ($newAccel) $recordType = 'acceleration';
+        
+        // Update highscores
+        if ($current === false) {
+          $insertStmt = $pdo->prepare("
+            INSERT INTO highscores (user_id, best_rotation, best_hoehe, best_acceleration_max, updated_at)
+            VALUES (:user_id, :rotation, :hoehe, :accel, strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+          ");
+          $insertStmt->execute([
+            ':user_id' => $playerId,
+            ':rotation' => $hasRotation ? $input['rotation'] : null,
+            ':hoehe' => $hasHeight ? $input['hoehe'] : null,
+            ':accel' => $hasAccel ? $input['acceleration_max'] : null
+          ]);
+        } else {
+          $newRotation = $newRotation ? ($hasRotation ? $input['rotation'] : $current['best_rotation']) : $current['best_rotation'];
+          $newHoehe = $newHoehe ? ($hasHeight ? $input['hoehe'] : $current['best_hoehe']) : $current['best_hoehe'];
+          $newAccel = $newAccel ? ($hasAccel ? $input['acceleration_max'] : $current['best_acceleration_max']) : $current['best_acceleration_max'];
+          
+          $updateStmt = $pdo->prepare("
+            UPDATE highscores SET
+              best_rotation = :rotation,
+              best_hoehe = :hoehe,
+              best_acceleration_max = :accel,
+              updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
+            WHERE user_id = :user_id
+          ");
+          $updateStmt->execute([
+            ':user_id' => $playerId,
+            ':rotation' => $newRotation,
+            ':hoehe' => $newHoehe,
+            ':accel' => $newAccel
+          ]);
+        }
+      }
+    }
+    
+    $response = ['id'=>$id, 'message'=>'Wurf erfolgreich erstellt'];
+    if ($isNewRecord) {
+      $response['is_new_record'] = true;
+      $response['record_type'] = $recordType;
+    }
+    json_response($response, 201);
   } catch (Exception $e) {
     json_response(['error'=>['code'=>'INSERT_FAILED','message'=>$e->getMessage()]], 500);
   }
