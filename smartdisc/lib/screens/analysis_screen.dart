@@ -193,15 +193,6 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
       ..sort((a, b) => (a['id'] ?? '').compareTo(b['id'] ?? ''));
   }
 
-  String _getDiscDisplayName(String? discId) {
-    if (discId == null || discId.isEmpty) return '-';
-    final disc = _discService.discs.value.firstWhere(
-      (d) => (d['id'] as String?) == discId,
-      orElse: () => {},
-    );
-    return (disc['name'] as String?) ?? discId;
-  }
-
   void _applyDiscFilter() {
     if (_selectedDisc == null) {
       // Show all
