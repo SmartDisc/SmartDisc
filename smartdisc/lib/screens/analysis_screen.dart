@@ -73,7 +73,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
       setState(() => _isLoading = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Fehler beim Laden: $e')),
+          SnackBar(content: Text('Failed to load data: $e')),
         );
       }
     }

@@ -27,20 +27,20 @@ class _LoginScreenState extends State<LoginScreen> {
 
   String? _validateEmail(String? value) {
     if (value == null || value.trim().isEmpty) {
-      return 'Bitte E-Mail eingeben';
+      return 'Please enter an email address';
     }
     if (!value.contains('@')) {
-      return 'Ungültige E-Mail';
+      return 'Invalid email address';
     }
     return null;
   }
 
   String? _validatePassword(String? value) {
     if (value == null || value.isEmpty) {
-      return 'Bitte Passwort eingeben';
+      return 'Please enter a password';
     }
     if (value.length < 6) {
-      return 'Mindestens 6 Zeichen';
+      return 'At least 6 characters';
     }
     return null;
   }
@@ -93,7 +93,7 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget _buildPasswordField() {
     return TextFormField(
       controller: _passwordController,
-      decoration: const InputDecoration(hintText: 'Passwort'),
+      decoration: const InputDecoration(hintText: 'Password'),
       obscureText: true,
       validator: _validatePassword,
     );
@@ -142,7 +142,7 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Login')),
+      appBar: AppBar(title: const Text('Log in')),
       body: SafeArea(
         child: Container(
           width: double.infinity,
@@ -159,7 +159,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     children: [
                       const _Header(),
                       const SizedBox(height: 32),
-                      Text('Login', style: AppFont.headline),
+                      Text('Log in', style: AppFont.headline),
                       const SizedBox(height: 28),
                       _buildEmailField(),
                       const SizedBox(height: 16),

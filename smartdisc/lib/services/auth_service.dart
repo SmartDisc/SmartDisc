@@ -109,7 +109,7 @@ class AuthService {
 
       if (res.statusCode != 201) {
         final error = body['error'] as Map<String, dynamic>?;
-        throw Exception(error?['message'] ?? 'Registrierung fehlgeschlagen');
+        throw Exception(error?['message'] ?? 'Registration failed');
       }
 
       final user = body['user'] as Map<String, dynamic>;

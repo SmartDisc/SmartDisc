@@ -1,8 +1,9 @@
 <?php
 // Throw routes
 
-// List throws
-if ($path === "$prefix/wurfe" && $method === 'GET') {
+// List throws (accept both German and English/legacy paths)
+$wurfeListPaths = ["$prefix/wurfe", '/api-php/wurfe', '/api-php/throws'];
+if (in_array($path, $wurfeListPaths, true) && $method === 'GET') {
   $limit = isset($_GET['limit']) ? max(1, min(500, intval($_GET['limit']))) : 100;
   $where = ['geloescht = 0'];
   $params = [];
@@ -21,9 +22,11 @@ if ($path === "$prefix/wurfe" && $method === 'GET') {
   json_response(['items'=>$items, 'count'=>count($items)]);
 }
 
-// Get single throw
-if (preg_match("#^$prefix/wurfe/([^/]+)$#", $path, $matches) && $method === 'GET') {
-  $wurfId = $matches[1];
+// Get single throw (accept legacy /api-php/throws/:id)
+if ((preg_match("#^$prefix/wurfe/([^/]+)$#", $path, $matches)
+    || preg_match('#^/api-php/(wurfe|throws)/([^/]+)$#', $path, $matches))
+    && $method === 'GET') {
+  $wurfId = end($matches);
   $stmt = $pdo->prepare("SELECT id, scheibe_id, player_id, rotation, hoehe, acceleration_max, erstellt_am FROM wurfe WHERE id = :id AND geloescht = 0");
   $stmt->execute([':id' => $wurfId]);
   $wurf = $stmt->fetch();
@@ -34,8 +37,8 @@ if (preg_match("#^$prefix/wurfe/([^/]+)$#", $path, $matches) && $method === 'GET
   json_response($wurf);
 }
 
-// Create throw
-if ($path === "$prefix/wurfe" && $method === 'POST') {
+// Create throw (accept legacy /api-php/throws)
+if (in_array($path, $wurfeListPaths, true) && $method === 'POST') {
   $input = get_json_input();
   
   // Check required fields

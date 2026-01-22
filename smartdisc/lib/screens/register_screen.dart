@@ -74,7 +74,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Registrierung'),
+        title: const Text('Register'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.pop(context),
@@ -96,18 +96,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     children: [
                       const _Header(),
                       const SizedBox(height: 32),
-                      Text('Registrierung', style: AppFont.headline),
+                      Text('Register', style: AppFont.headline),
                       const SizedBox(height: 28),
                       TextFormField(
                         controller: _firstNameController,
                         decoration: const InputDecoration(
-                          labelText: 'Vorname',
-                          hintText: 'Max',
+                          labelText: 'First name',
+                          hintText: 'e.g., Alex',
                         ),
                         textCapitalization: TextCapitalization.words,
                         validator: (value) {
                           if (value == null || value.trim().isEmpty) {
-                            return 'Bitte Vorname eingeben';
+                            return 'Please enter a first name';
                           }
                           return null;
                         },
@@ -116,13 +116,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       TextFormField(
                         controller: _lastNameController,
                         decoration: const InputDecoration(
-                          labelText: 'Nachname',
-                          hintText: 'Mustermann',
+                          labelText: 'Last name',
+                          hintText: 'e.g., Doe',
                         ),
                         textCapitalization: TextCapitalization.words,
                         validator: (value) {
                           if (value == null || value.trim().isEmpty) {
-                            return 'Bitte Nachname eingeben';
+                            return 'Please enter a last name';
                           }
                           return null;
                         },
@@ -132,15 +132,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         controller: _emailController,
                         keyboardType: TextInputType.emailAddress,
                         decoration: const InputDecoration(
-                          labelText: 'E-Mail',
+                          labelText: 'Email',
                           hintText: 'email@domain.com',
                         ),
                         validator: (value) {
                           if (value == null || value.trim().isEmpty) {
-                            return 'Bitte E-Mail eingeben';
+                            return 'Please enter an email address';
                           }
                           if (!value.contains('@') || !value.contains('.')) {
-                            return 'Ungültige E-Mail';
+                            return 'Invalid email address';
                           }
                           return null;
                         },
@@ -149,16 +149,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       TextFormField(
                         controller: _passwordController,
                         decoration: const InputDecoration(
-                          labelText: 'Passwort',
-                          hintText: 'Mindestens 6 Zeichen',
+                          labelText: 'Password',
+                          hintText: 'At least 6 characters',
                         ),
                         obscureText: true,
                         validator: (value) {
                           if (value == null || value.isEmpty) {
-                            return 'Bitte Passwort eingeben';
+                            return 'Please enter a password';
                           }
                           if (value.length < 6) {
-                            return 'Mindestens 6 Zeichen';
+                            return 'At least 6 characters';
                           }
                           return null;
                         },
@@ -167,16 +167,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       TextFormField(
                         controller: _passwordConfirmController,
                         decoration: const InputDecoration(
-                          labelText: 'Passwort bestätigen',
-                          hintText: 'Passwort wiederholen',
+                          labelText: 'Confirm password',
+                          hintText: 'Repeat password',
                         ),
                         obscureText: true,
                         validator: (value) {
                           if (value == null || value.isEmpty) {
-                            return 'Bitte Passwort bestätigen';
+                            return 'Please confirm the password';
                           }
                           if (value != _passwordController.text) {
-                            return 'Passwörter stimmen nicht überein';
+                            return 'Passwords do not match';
                           }
                           return null;
                         },
@@ -185,11 +185,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       DropdownButtonFormField<String>(
                         initialValue: _selectedRole,
                         decoration: const InputDecoration(
-                          labelText: 'Rolle',
+                          labelText: 'Role',
                         ),
                         items: const [
                           DropdownMenuItem(value: 'player', child: Text('Player')),
-                          DropdownMenuItem(value: 'trainer', child: Text('Trainer')),
+                          DropdownMenuItem(value: 'trainer', child: Text('Coach')),
                         ],
                         onChanged: (value) {
                           if (value != null) {
@@ -231,7 +231,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                   height: 18,
                                   child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                                 )
-                              : const Text('Registrieren'),
+                              : const Text('Register'),
                         ),
                       ),
                       const SizedBox(height: 20),
@@ -251,7 +251,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           onPressed: () {
                             Navigator.pushReplacementNamed(context, '/auth/login');
                           },
-                          child: const Text('Bereits registriert? Login'),
+                          child: const Text('Already registered? Log in'),
                         ),
                       ),
                       const SizedBox(height: 4),
