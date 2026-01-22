@@ -19,23 +19,14 @@ class DashboardScreen extends StatefulWidget {
   State<DashboardScreen> createState() => _DashboardScreenState();
 }
 
-enum StatMetric {
-  rotation,
-  height,
-  acceleration,
-}
-
 class _DashboardScreenState extends State<DashboardScreen> {
   final api = ApiService();
 
   // DiscService-backed selectable discs
   final _discSvc = DiscService.instance();
-  List<String> discNames = List.generate(10, (i) => 'DISC-${(i + 1).toString().padLeft(2, '0')}');
-  Map<String, String> discNameToId = {}; // Map name -> id
-  String? selectedDiscId; // null = "Alle", otherwise the disc ID
-  StatMetric selectedMetric = StatMetric.rotation;
+  List<String> discs = List.generate(10, (i) => 'DISC-${(i + 1).toString().padLeft(2, '0')}');
+  String selectedDisc = 'DISC-01';
   late Future<List<Wurf>> _wurfeF;
-  late Future<Map<String, dynamic>> _statsF;
   bool _localeReady = false;
 
   @override
@@ -50,52 +41,27 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Future<void> _initDiscs() async {
     await _discSvc.init();
-    _updateDiscLists();
+    // populate local discs list from stored data, fallback to generated if empty
+    final stored = _discSvc.discs.value.map((m) => (m['name'] ?? '').toString()).where((s) => s.isNotEmpty).toList();
+    if (stored.isNotEmpty) {
+      setState(() {
+        discs = stored;
+        if (!discs.contains(selectedDisc)) selectedDisc = discs.first;
+      });
+    }
     // Listen for changes (e.g., when user edits discs in Discs screen)
     _discSvc.discs.addListener(() {
-      _updateDiscLists();
-      _reload();
-    });
-  }
-
-  void _updateDiscLists() {
-    final discList = _discSvc.discs.value;
-    final names = <String>[];
-    final nameToId = <String, String>{};
-    
-    for (final disc in discList) {
-      final id = (disc['id'] as String?) ?? '';
-      final name = (disc['name'] as String?) ?? id;
-      if (id.isNotEmpty && name.isNotEmpty) {
-        names.add(name);
-        nameToId[name] = id;
-      }
-    }
-    
-    if (names.isEmpty) {
-      // Fallback: generate default disc names
-      names.addAll(List.generate(10, (i) => 'DISC-${(i + 1).toString().padLeft(2, '0')}'));
-      for (final name in names) {
-        nameToId[name] = name; // Use name as ID for fallback
-      }
-    }
-    
-    setState(() {
-      discNames = names;
-      discNameToId = nameToId;
-      // Wenn selectedDiscId nicht mehr in der Liste ist, auf "Alle" setzen
-      if (selectedDiscId != null) {
-        final stillExists = nameToId.values.contains(selectedDiscId);
-        if (!stillExists) {
-          selectedDiscId = null;
-        }
-      }
+      final vals = _discSvc.discs.value.map((m) => (m['name'] ?? '').toString()).where((s) => s.isNotEmpty).toList();
+      setState(() {
+        discs = vals.isNotEmpty ? vals : List.generate(10, (i) => 'DISC-${(i + 1).toString().padLeft(2, '0')}');
+        if (!discs.contains(selectedDisc)) selectedDisc = discs.isNotEmpty ? discs.first : 'DISC-01';
+        _reload();
+      });
     });
   }
 
   void _reload() {
-    _wurfeF = api.getWuerfe(limit: 50, scheibeId: selectedDiscId);
-    _statsF = api.getSummary(scheibeId: selectedDiscId);
+    _wurfeF = api.getWuerfe(limit: 50, scheibeId: selectedDisc);
     setState(() {});
   }
 
@@ -112,11 +78,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
       }
 
       final rnd = math_random.Random();
-      // Wenn "Alle" ausgewählt, verwende erste Disc für Test-Wurf
-      final discForThrow = selectedDiscId ?? (discNameToId.values.isNotEmpty ? discNameToId.values.first : discNames.first);
       // Erstelle einen Wurf mit zufälligen Werten (hohe Werte für bessere Chance auf Highscore)
       final result = await api.createThrow(
-        scheibeId: discForThrow,
+        scheibeId: selectedDisc,
         playerId: userId,
         rotation: 5.0 + rnd.nextDouble() * 10, // 5-15 rps
         height: 2.0 + rnd.nextDouble() * 5, // 2-7 m
@@ -229,64 +193,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 12),
                   child: DropdownButtonHideUnderline(
-                    child: DropdownButton<String?>(
-                      value: selectedDiscId != null ? discNameToId.entries.firstWhere((e) => e.value == selectedDiscId, orElse: () => discNameToId.entries.first).key : null,
+                    child: DropdownButton<String>(
+                      value: selectedDisc,
                       isExpanded: true,
                       borderRadius: BorderRadius.circular(12),
-                      items: [
-                        const DropdownMenuItem<String?>(
-                          value: null,
-                          child: Text('Alle Discs'),
-                        ),
-                        ...discNames.map((name) => DropdownMenuItem<String?>(
-                          value: name,
-                          child: Text(name),
-                        )),
-                      ],
+                      items: discs
+                          .map((d) => DropdownMenuItem(value: d, child: Text(d)))
+                          .toList(),
                       onChanged: (v) {
-                        setState(() {
-                          selectedDiscId = v != null ? discNameToId[v] : null;
-                        });
+                        if (v == null) return;
+                        setState(() => selectedDisc = v);
                         _reload();
-                      },
-                    ),
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 12),
-              // Metric selector
-              DecoratedBox(
-                decoration: BoxDecoration(
-                  color: AppColors.surface,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppColors.textSecondary.withAlpha((0.15 * 255).round())),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  child: DropdownButtonHideUnderline(
-                    child: DropdownButton<StatMetric>(
-                      value: selectedMetric,
-                      isExpanded: true,
-                      borderRadius: BorderRadius.circular(12),
-                      items: const [
-                        DropdownMenuItem<StatMetric>(
-                          value: StatMetric.rotation,
-                          child: Text('Rotation'),
-                        ),
-                        DropdownMenuItem<StatMetric>(
-                          value: StatMetric.height,
-                          child: Text('Höhe'),
-                        ),
-                        DropdownMenuItem<StatMetric>(
-                          value: StatMetric.acceleration,
-                          child: Text('Beschleunigung'),
-                        ),
-                      ],
-                      onChanged: (v) {
-                        if (v != null) {
-                          setState(() => selectedMetric = v);
-                        }
                       },
                     ),
                   ),
@@ -295,87 +212,52 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
               const SizedBox(height: 16),
 
-              // Statistics based on selected metric and disc
-              FutureBuilder<Map<String, dynamic>>(
-                future: _statsF,
-                builder: (context, statsSnapshot) {
-                  final stats = statsSnapshot.data ?? {};
-                  final discLabel = selectedDiscId != null 
-                      ? discNameToId.entries.firstWhere((e) => e.value == selectedDiscId, orElse: () => discNameToId.entries.first).key
-                      : 'Alle Discs';
-                  
-                  return LayoutBuilder(builder: (ctx, constraints) {
-                    final w = constraints.maxWidth;
-                    final cols = w < 420 ? 2 : (w < 900 ? 3 : 4);
-                    final spacing = 12.0;
-                    final itemW = (w - (cols - 1) * spacing) / cols;
-                    
-                    // Get values based on selected metric
-                    String metricLabel;
-                    IconData metricIcon;
-                    String avgValue;
-                    String maxValue;
-                    
-                    switch (selectedMetric) {
-                      case StatMetric.rotation:
-                        metricLabel = 'Rotation';
-                        metricIcon = Icons.refresh_rounded;
-                        final avg = (stats['rotationAvg'] as num?)?.toDouble() ?? 0.0;
-                        final max = (stats['rotationMax'] as num?)?.toDouble() ?? 0.0;
-                        avgValue = '${avg.toStringAsFixed(2)} rps\n${(avg * 60).toStringAsFixed(0)} rpm';
-                        maxValue = '${max.toStringAsFixed(2)} rps\n${(max * 60).toStringAsFixed(0)} rpm';
-                        break;
-                      case StatMetric.height:
-                        metricLabel = 'Höhe';
-                        metricIcon = Icons.height_rounded;
-                        final avg = (stats['heightAvg'] as num?)?.toDouble() ?? 0.0;
-                        final max = (stats['heightMax'] as num?)?.toDouble() ?? 0.0;
-                        avgValue = '${avg.toStringAsFixed(2)} m';
-                        maxValue = '${max.toStringAsFixed(2)} m';
-                        break;
-                      case StatMetric.acceleration:
-                        metricLabel = 'Beschleunigung';
-                        metricIcon = Icons.speed_rounded;
-                        final avg = (stats['accelerationAvg'] as num?)?.toDouble() ?? 0.0;
-                        final max = (stats['accelerationMax'] as num?)?.toDouble() ?? 0.0;
-                        avgValue = '${avg.toStringAsFixed(2)} m/s²';
-                        maxValue = '${max.toStringAsFixed(2)} m/s²';
-                        break;
-                    }
-                    
-                    return Wrap(
-                      spacing: spacing,
-                      runSpacing: spacing,
-                      children: [
-                        StatCard(
-                          icon: Icons.storage_rounded,
-                          label: 'Disc',
-                          value: discLabel,
-                          sublabel: 'Ausgewählt',
-                        ),
-                        StatCard(
-                          icon: metricIcon,
-                          label: 'Durchschnitt $metricLabel',
-                          value: avgValue,
-                          sublabel: 'Mittelwert',
-                        ),
-                        StatCard(
-                          icon: metricIcon,
-                          label: 'Maximum $metricLabel',
-                          value: maxValue,
-                          sublabel: 'Höchster Wert',
-                        ),
-                        StatCard(
-                          icon: Icons.assessment_rounded,
-                          label: 'Anzahl Würfe',
-                          value: '${stats['count'] ?? 0}',
-                          sublabel: 'Gesamt',
-                        ),
-                      ].map((c) => SizedBox(width: itemW.clamp(140.0, 420.0), child: c)).toList(),
-                    );
-                  });
-                },
-              ),
+              // KPI grid — responsive columns using Wrap to avoid forcing tall intrinsic heights
+              LayoutBuilder(builder: (ctx, constraints) {
+                final w = constraints.maxWidth;
+                // target two columns on narrow, up to four on wide
+                final cols = w < 420 ? 2 : (w < 900 ? 3 : 4);
+                final spacing = 12.0;
+                final itemW = (w - (cols - 1) * spacing) / cols;
+                return Wrap(
+                  spacing: spacing,
+                  runSpacing: spacing,
+                  children: [
+                    StatCard(
+                      icon: Icons.history_rounded,
+                      label: 'Disc / Time',
+                      value: latest != null
+                          ? '${latest.scheibeId ?? 'DISC'}\n${_formatGermanTimestamp(latest.erstelltAm)}'
+                          : '-',
+                      sublabel: 'Latest',
+                    ),
+                    StatCard(
+                      icon: Icons.refresh_rounded,
+                      label: 'Rotation',
+                      value: latest != null && latest.rotation != null
+                          ? '${latest.rotation!.toStringAsFixed(2)} rps\n${(latest.rotation! * 60).toStringAsFixed(0)} rpm'
+                          : '-',
+                      sublabel: 'Latest measurement',
+                    ),
+                    StatCard(
+                      icon: Icons.height_rounded,
+                      label: 'Height',
+                      value: latest != null && latest.hoehe != null
+                          ? '${latest.hoehe!.toStringAsFixed(2)} m'
+                          : '-',
+                      sublabel: 'Latest measurement',
+                    ),
+                    StatCard(
+                      icon: Icons.speed_rounded,
+                      label: 'Acceleration',
+                      value: latest != null && latest.accelerationMax != null
+                          ? '${latest.accelerationMax!.toStringAsFixed(2)} m/s²'
+                          : '-',
+                      sublabel: 'Maximum acceleration',
+                    ),
+                  ].map((c) => SizedBox(width: itemW.clamp(140.0, 420.0), child: c)).toList(),
+                );
+              }),
 
               const SizedBox(height: 24),
               // Test Button für Highscore
@@ -396,12 +278,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               // Show which disc these throws belong to
               Padding(
                 padding: const EdgeInsets.only(bottom: 8.0),
-                child: Text(
-                  'Disc: ${selectedDiscId != null 
-                      ? discNameToId.entries.firstWhere((e) => e.value == selectedDiscId, orElse: () => discNameToId.entries.first).key
-                      : 'Alle Discs'}',
-                  style: AppFont.subheadline,
-                ),
+                child: Text('Disc: $selectedDisc', style: AppFont.subheadline),
               ),
 
               const SizedBox(height: 4),

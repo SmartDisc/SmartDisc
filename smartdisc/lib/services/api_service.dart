@@ -102,11 +102,8 @@ class ApiService {
     });
   }
 
-  Future<Map<String, dynamic>> getSummary({String? scheibeId}) async {
-    final uri = scheibeId != null && scheibeId.isNotEmpty
-        ? _u('/stats/summary?scheibe_id=$scheibeId')
-        : _u('/stats/summary');
-    final res = await _client.get(uri);
+  Future<Map<String, dynamic>> getSummary() async {
+    final res = await _client.get(_u('/stats/summary'));
     if (res.statusCode != 200) {
       throw Exception('summary failed: ${res.statusCode}');
     }

@@ -1,10 +1,7 @@
 <?php
 // Stats endpoint
 if ($path === "$prefix/stats/summary" && $method === 'GET') {
-  // Optional: filter by disc (scheibe_id)
-  $scheibeId = $_GET['scheibe_id'] ?? null;
-  
-  $query = "
+  $stats = $pdo->query("
     SELECT 
       COUNT(*) AS count,
       MAX(rotation) AS rotation_max,
@@ -15,18 +12,7 @@ if ($path === "$prefix/stats/summary" && $method === 'GET') {
       AVG(acceleration_max) AS acceleration_avg
     FROM wurfe 
     WHERE geloescht = 0
-  ";
-  
-  $params = [];
-  if ($scheibeId !== null && $scheibeId !== '') {
-    $query .= " AND scheibe_id = :scheibe_id";
-    $params[':scheibe_id'] = $scheibeId;
-  }
-  
-  $stmt = $pdo->prepare($query);
-  $stmt->execute($params);
-  $stats = $stmt->fetch();
-  
+  ")->fetch();
   json_response([
     'count'=> intval($stats['count'] ?? 0),
     'rotationMax'=> floatval($stats['rotation_max'] ?? 0),
