@@ -75,6 +75,3 @@ if ($path === "$prefix/admin/overview" && $method === 'GET') {
     'throws_sample' => $throws,
   ]);
 }
-
-
-

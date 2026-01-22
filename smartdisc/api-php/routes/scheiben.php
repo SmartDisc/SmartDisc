@@ -10,7 +10,7 @@ if ($path === "$prefix/scheiben" && $method === 'GET') {
 if ($path === "$prefix/scheiben" && $method === 'POST') {
   $input = get_json_input();
   if (empty($input['id'])) {
-    json_response(['error'=>['code'=>'VALIDATION_ERROR','message'=>'id ist erforderlich']], 400);
+    json_response(['error' => ['code' => 'VALIDATION_ERROR', 'message' => 'id ist erforderlich']], 400);
     exit;
   }
   $stmt = $pdo->prepare("
@@ -29,7 +29,7 @@ if ($path === "$prefix/scheiben" && $method === 'POST') {
     log_audit('scheiben', $input['id'], 'INSERT', null, $input);
     json_response(['id' => $input['id'], 'message' => 'Messsystem erfolgreich registriert'], 201);
   } catch (Exception $e) {
-    json_response(['error'=>['code'=>'INSERT_FAILED','message'=>$e->getMessage()]], 500);
+    json_response(['error' => ['code' => 'INSERT_FAILED', 'message' => $e->getMessage()]], 500);
     exit;
   }
 }
@@ -40,14 +40,13 @@ if (preg_match("~^$prefix/scheiben/([^/]+)$~", $path, $m) && $method === 'DELETE
   try {
     $stmt->execute([':id' => $id]);
     if ($stmt->rowCount() === 0) {
-      json_response(['error'=>['code'=>'NOT_FOUND','message'=>'Messsystem nicht gefunden']], 404);
+      json_response(['error' => ['code' => 'NOT_FOUND', 'message' => 'Messsystem nicht gefunden']], 404);
       exit;
     }
     log_audit('scheiben', $id, 'DELETE', null, ['aktiv' => 0]);
     json_response(['message' => 'Messsystem deaktiviert'], 200);
   } catch (Exception $e) {
-    json_response(['error'=>['code'=>'DELETE_FAILED','message'=>$e->getMessage()]], 500);
+    json_response(['error' => ['code' => 'DELETE_FAILED', 'message' => $e->getMessage()]], 500);
     exit;
   }
 }
-
