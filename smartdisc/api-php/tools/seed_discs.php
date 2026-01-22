@@ -8,6 +8,13 @@
 
 require_once __DIR__ . '/../db.php';
 
+// Only seed when the table is empty — this is a pure fallback, not a merger
+$existingCount = (int) $pdo->query('SELECT COUNT(*) FROM scheiben')->fetchColumn();
+if ($existingCount > 0) {
+  echo "Skip seeding: discs table already has $existingCount rows.\n";
+  exit(0);
+}
+
 // Hilfsfunktion: Disc anlegen, falls sie fehlt
 function ensure_disc_exists(PDO $pdo, string $id, string $name): void {
   $check = $pdo->prepare('SELECT id FROM scheiben WHERE id = :id LIMIT 1');
