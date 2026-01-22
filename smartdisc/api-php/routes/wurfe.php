@@ -41,9 +41,24 @@ if ((preg_match("#^$prefix/wurfe/([^/]+)$#", $path, $matches)
 if (in_array($path, $wurfeListPaths, true) && $method === 'POST') {
   $input = get_json_input();
   
+  // Normalize incoming types (hardware may send ints/floats)
+  if (isset($input['scheibe_id']) && is_numeric($input['scheibe_id'])) {
+    // Hardware sends numeric disc IDs; keep them as integers
+    $input['scheibe_id'] = (int) $input['scheibe_id'];
+  }
+  if (isset($input['rotation']) && is_numeric($input['rotation'])) {
+    $input['rotation'] = floatval($input['rotation']);
+  }
+  if (isset($input['hoehe']) && is_numeric($input['hoehe'])) {
+    $input['hoehe'] = floatval($input['hoehe']);
+  }
+  if (isset($input['acceleration_max']) && is_numeric($input['acceleration_max'])) {
+    $input['acceleration_max'] = floatval($input['acceleration_max']);
+  }
+  
   // Check required fields
   if (empty($input['scheibe_id'])) {
-    json_response(['error'=>['code'=>'VALIDATION_ERROR','message'=>'scheibe_id ist erforderlich']], 400);
+    json_response(['error'=>['code'=>'VALIDATION_ERROR','message'=>'scheibe_id is required']], 400);
     exit;
   }
   
