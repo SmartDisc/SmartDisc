@@ -24,7 +24,8 @@ while (true) {
     $lastTimestamp = end($rows)['erstellt_am'];
     echo "event: update\n";
     echo "data: " . json_encode($rows) . "\n\n";
-    @ob_flush(); flush();
+    @ob_flush();
+    flush();
   }
   usleep(200000);
 }

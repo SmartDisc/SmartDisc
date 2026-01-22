@@ -1,18 +1,20 @@
 <?php
 $DB_FILE = __DIR__ . '/data/smartdisc.sqlite';
-if (!is_dir(__DIR__ . '/data')) { mkdir(__DIR__ . '/data', 0777, true); }
+if (!is_dir(__DIR__ . '/data')) {
+    mkdir(__DIR__ . '/data', 0777, true);
+}
 try {
-  $pdo = new PDO('sqlite:' . $DB_FILE, null, null, [
-    PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-    PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-  ]);
-  // Foreign Key Constraints aktivieren
-  $pdo->exec('PRAGMA foreign_keys = ON');
+    $pdo = new PDO('sqlite:' . $DB_FILE, null, null, [
+        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+    ]);
+    // Foreign Key Constraints aktivieren
+    $pdo->exec('PRAGMA foreign_keys = ON');
 } catch (Exception $e) {
-  http_response_code(500);
-  header('Content-Type: application/json');
-  echo json_encode(['error' => ['code'=>'DB_CONNECT_ERROR','message'=>$e->getMessage()]]);
-  exit;
+    http_response_code(500);
+    header('Content-Type: application/json');
+    echo json_encode(['error' => ['code' => 'DB_CONNECT_ERROR', 'message' => $e->getMessage()]]);
+    exit;
 }
 
 $pdo->exec("
