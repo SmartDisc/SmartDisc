@@ -13,7 +13,7 @@ class _DiscsScreenState extends State<DiscsScreen> {
   final _svc = DiscService.instance();
   List<Map<String, dynamic>> _discs = [];
   bool _loading = true;
-  late VoidCallback _discsListener;
+  VoidCallback? _discsListener;
 
   @override
   void initState() {
@@ -32,17 +32,17 @@ class _DiscsScreenState extends State<DiscsScreen> {
         });
       }
     };
-    _svc.discs.addListener(_discsListener);
+    _svc.discs.addListener(_discsListener!);
     setState(() => _loading = false);
   }
 
   @override
   void dispose() {
-    _svc.discs.removeListener(_discsListener);
+    if (_discsListener != null) {
+      _svc.discs.removeListener(_discsListener!);
+    }
     super.dispose();
   }
-
-  // Save handled by DiscService; no-op kept for compatibility if needed later.
 
   String _formatDate(String iso) {
     try {

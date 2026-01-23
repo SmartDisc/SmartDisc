@@ -39,6 +39,7 @@ class MyApp extends StatelessWidget {
         '/history': (context) => const AppShell(initialIndex: 2),
         '/discs': (context) => const AppShell(initialIndex: 3),
         '/profile': (context) => const AppShell(initialIndex: 4),
+        '/ble': (context) => const AppShell(initialIndex: 5),
         '/throws': (context) => const ThrowListExample(),
       },
       home: const _AuthGate(),

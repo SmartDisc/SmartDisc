@@ -67,24 +67,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
           }
           final items = s.data ?? [];
 
-          // Add an extra synthetic throw about one week ago so it appears in history
-          final oneWeekAgo = DateTime.now().toUtc().subtract(const Duration(days: 7));
-          final extraId = 'manual-old-${oneWeekAgo.millisecondsSinceEpoch}';
-          // Only add if not already present
-          final hasExtra = items.any((w) => w.id == extraId);
-          final allItems = List<Wurf>.from(items);
-          if (!hasExtra) {
-            allItems.add(Wurf(
-              id: extraId,
-              scheibeId: 'DISC-01',
-              rotation: 4.2,
-              hoehe: 2.1,
-              accelerationMax: 11.5,
-              erstelltAm: oneWeekAgo.toIso8601String(),
-            ));
-          }
-
-          if (allItems.isEmpty) {
+          if (items.isEmpty) {
             return Center(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -101,7 +84,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
           // Group throws into sessions by date (yyyy-MM-dd)
           final Map<String, List<Wurf>> sessionsMap = {};
-          for (final w in allItems) {
+          for (final w in items) {
             final dt = w.erstelltAm == null ? null : DateTime.tryParse(w.erstelltAm!);
             final local = dt?.toLocal();
             final key = local != null ? DateFormat('yyyy-MM-dd').format(local) : 'unknown';

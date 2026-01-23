@@ -25,6 +25,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   String selectedDisc = 'DISC-01';
   late Future<List<Wurf>> _wurfeF;
   bool _localeReady = false;
+  VoidCallback? _discsListener;
 
   @override
   void initState() {
@@ -47,14 +48,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
       });
     }
     // Listen for changes (e.g., when user edits discs in Discs screen)
-    _discSvc.discs.addListener(() {
+    _discsListener = () {
+      if (!mounted) return;
       final vals = _discSvc.discs.value.map((m) => (m['name'] ?? '').toString()).where((s) => s.isNotEmpty).toList();
       setState(() {
         discs = vals.isNotEmpty ? vals : List.generate(10, (i) => 'DISC-${(i + 1).toString().padLeft(2, '0')}');
         if (!discs.contains(selectedDisc)) selectedDisc = discs.isNotEmpty ? discs.first : 'DISC-01';
-        _reload();
       });
-    });
+      _reload();
+    };
+    _discSvc.discs.addListener(_discsListener!);
+  }
+
+  @override
+  void dispose() {
+    if (_discsListener != null) {
+      _discSvc.discs.removeListener(_discsListener!);
+    }
+    super.dispose();
   }
 
   void _reload() {
@@ -93,26 +104,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
           // Compute KPIs for the selected disc
           final latest = items.isNotEmpty ? items.first : null;
-          
-            // Removed unused KPI aggregation variables
-            // final avgSpeedMps = last10.isEmpty
-            //     ? 0
-            //     : last10
-            //             .map((w) => w.geschwindigkeit ?? 0)
-            //             .fold<double>(0, (a, b) => a + b) /
-            //         last10.length;
-            // final avgSpeedMph = _mpsToMph(avgSpeedMps);
-            // final maxDistM = items.fold<double>(
-            //     0, (mx, w) => (w.entfernung ?? 0) > mx ? (w.entfernung ?? 0) : mx);
-            // final maxDistFt = _mToFt(maxDistM);
-            // final avgRps = last10.isEmpty
-            //     ? 0
-            //     : last10
-            //             .map((w) => w.geschwindigkeit ?? 0)
-            //             .fold<double>(0, (a, b) => a + b) /
-            //         last10.length;
-            // final avgRpm = avgRps * 60.0;
-            // final totalThrows = items.length;
 
           return ListView(
             padding: EdgeInsets.fromLTRB(horizontalPadding, 16, horizontalPadding, 24),
