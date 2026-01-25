@@ -19,7 +19,7 @@ class BleDiscService {
   static const String characteristicUuid = "6e400003-b5a3-f393-e0a9-e50e24dcca9e";
   
   /// Device name filter (fallback - may be empty on Windows)
-  static const String deviceNameFilter = "SmartDisc";
+  static const String deviceNameFilter = "Bodenstation-ESP32";
   
   /// Scan timeout
   static const Duration scanTimeout = Duration(seconds: 15);
@@ -102,9 +102,10 @@ class BleDiscService {
           final hasTargetService = result.advertisementData.serviceUuids
               .any((uuid) => uuid.toString().toLowerCase() == serviceUuid.toLowerCase());
           
-          // Secondary filter: Device name (may be empty on Windows)
+          // Secondary filter: Device name (ESP32 or SmartDisc)
           final hasTargetName = result.device.platformName.isNotEmpty &&
-              result.device.platformName.contains(deviceNameFilter);
+              (result.device.platformName.contains("ESP") || 
+               result.device.platformName.contains(deviceNameFilter));
           
           if (hasTargetService || hasTargetName) {
             // ignore: avoid_print
@@ -123,10 +124,9 @@ class BleDiscService {
         }
       });
       
-      // Start scan
+      // Start scan (removed service UUID filter to find all devices)
       await FlutterBluePlus.startScan(
         timeout: scanTimeout,
-        withServices: [Guid(serviceUuid)], // Filter by service UUID
       );
       
       // Wait for scan to complete
@@ -137,8 +137,11 @@ class BleDiscService {
       if (foundDevice == null) {
         _errorController.add("ESP32 not found. Ensure it's powered on and advertising.");
         _connectionStateController.add(BleConnectionState.disconnected);
+        return null;
       }
       
+      // Device found successfully
+      _connectionStateController.add(BleConnectionState.disconnected);
       return foundDevice;
     } catch (e) {
       _errorController.add("Scan failed: $e");
@@ -156,42 +159,117 @@ class BleDiscService {
       await device.connect(timeout: const Duration(seconds: 15));
       _connectedDevice = device;
       
-      // ignore: avoid_print
-      print("Connected to ${device.platformName}");
+      // Connected successfully
+      _errorController.add("Connected to ${device.platformName}");
       
-      // Discover services
-      final services = await device.discoverServices();
+      // CRITICAL: Wait a bit after connection on Windows before discovering services
+      // Windows BLE stack needs time to establish the connection fully
+      await Future.delayed(const Duration(milliseconds: 500));
       
-      // Find target service
-      BluetoothService? targetService;
-      for (var service in services) {
-        if (service.uuid.toString().toLowerCase() == serviceUuid.toLowerCase()) {
-          targetService = service;
-          break;
-        }
+      // On Windows, discoverServices() may fail with SecurityError
+      // Try to discover services, but handle gracefully if blocked
+      List<BluetoothService> services = [];
+      try {
+        services = await device.discoverServices();
+      } catch (e) {
+        // Service discovery failed, will attempt fallback
+        _errorController.add("Service discovery failed: $e");
       }
       
-      if (targetService == null) {
-        throw Exception("Service $serviceUuid not found");
+      // Find target service (if we got services)
+      BluetoothService? targetService;
+      if (services.isNotEmpty) {
+        for (var service in services) {
+          if (service.uuid.toString().toLowerCase() == serviceUuid.toLowerCase()) {
+            targetService = service;
+            break;
+          }
+        }
       }
       
       // Find notify characteristic
       BluetoothCharacteristic? notifyChar;
-      for (var char in targetService.characteristics) {
-        if (char.uuid.toString().toLowerCase() == characteristicUuid.toLowerCase()) {
-          notifyChar = char;
-          break;
+      
+      if (targetService != null) {
+        // Found service, look for characteristic
+        for (var char in targetService.characteristics) {
+          if (char.uuid.toString().toLowerCase() == characteristicUuid.toLowerCase()) {
+            notifyChar = char;
+            break;
+          }
+        }
+      }
+      
+      // If not found in target service, search all services
+      if (notifyChar == null && services.isNotEmpty) {
+        for (var service in services) {
+          for (var char in service.characteristics) {
+            if (char.uuid.toString().toLowerCase() == characteristicUuid.toLowerCase()) {
+              notifyChar = char;
+              break;
+            }
+          }
+          if (notifyChar != null) break;
+        }
+      }
+      
+      // If still not found, try to get services again (Windows sometimes needs retry)
+      if (notifyChar == null) {
+        try {
+          await Future.delayed(const Duration(milliseconds: 500));
+          services = await device.discoverServices();
+          
+          for (var service in services) {
+            for (var char in service.characteristics) {
+              if (char.uuid.toString().toLowerCase() == characteristicUuid.toLowerCase()) {
+                notifyChar = char;
+                break;
+              }
+            }
+            if (notifyChar != null) break;
+          }
+        } catch (e) {
+          // Retry failed, will report detailed error below
         }
       }
       
       if (notifyChar == null) {
-        throw Exception("Characteristic $characteristicUuid not found");
+        // Provide detailed error message with discovered services
+        final serviceList = services.map((s) => s.uuid.toString()).join(', ');
+        throw Exception(
+          "Cannot access characteristic $characteristicUuid.\n"
+          "Service: $serviceUuid\n"
+          "Device: ${device.platformName}\n"
+          "Discovered services: ${serviceList.isEmpty ? 'none' : serviceList}\n"
+          "Tip: Verify ESP32 is advertising this service and characteristic."
+        );
+      }
+      
+      // Verify the characteristic supports notifications
+      if (!notifyChar.properties.notify && !notifyChar.properties.indicate) {
+        throw Exception(
+          "Characteristic $characteristicUuid does not support notifications.\n"
+          "Properties: ${notifyChar.properties}"
+        );
       }
       
       // Enable notifications (CRITICAL)
-      await notifyChar.setNotifyValue(true);
+      // On Windows, sometimes notifications need to be enabled with a small delay
+      try {
+        // Enable notifications
+        await notifyChar.setNotifyValue(true);
+        
+        // Wait a bit for Windows to process the notification enable
+        await Future.delayed(const Duration(milliseconds: 300));
+        
+        // ignore: avoid_print
+        print("Notifications enabled on characteristic $characteristicUuid");
+      } catch (e) {
+        throw Exception("Failed to enable notifications: $e");
+      }
       
       // Subscribe to notifications with buffering
+      // Use lastValueStream which is the standard stream for notifications
       _notificationSubscription = notifyChar.lastValueStream.listen(
         _handleNotification,
         onError: (error) {
@@ -212,7 +290,8 @@ class BleDiscService {
       
       return true;
     } catch (e) {
-      _errorController.add("Connection failed: $e");
+      _errorController.add("Failed to connect to ESP32: $e");
+      _connectionStateController.add(BleConnectionState.disconnected);
       await disconnect();
       return false;
     }
@@ -221,8 +300,19 @@ class BleDiscService {
   /// Scan and connect in one step
   Future<bool> scanAndConnect() async {
     final device = await scanForDevice();
-    if (device == null) return false;
-    return await connectToDevice(device);
+    if (device == null) {
+      // Error already added by scanForDevice
+      return false;
+    }
+    
+    // Device found, now try to connect
+    final connected = await connectToDevice(device);
+    if (!connected) {
+      // Error already added by connectToDevice
+      return false;
+    }
+    
+    return true;
   }
   
   /// Disconnect from device

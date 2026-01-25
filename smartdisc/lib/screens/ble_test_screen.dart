@@ -333,12 +333,13 @@ class _BleTestScreenState extends State<BleTestScreen> {
                               const SizedBox(height: 16),
                               Text(
                                 _connectionState == BleConnectionState.connected
-                                    ? 'Waiting for measurements...'
+                                    ? 'Waiting for measurements...\n(${_measurements.length} received)'
                                     : 'Connect to ESP32 to receive data',
                                 style: const TextStyle(
                                   fontSize: 16,
                                   color: Colors.grey,
                                 ),
+                                textAlign: TextAlign.center,
                               ),
                             ],
                           ),
@@ -430,6 +431,76 @@ class _BleTestScreenState extends State<BleTestScreen> {
                           },
                         ),
                 ),
+
+                // Data stats bar
+                if (_connectionState == BleConnectionState.connected &&
+                    _measurements.isNotEmpty)
+                  Container(
+                    color: Colors.blue[50],
+                    padding: const EdgeInsets.all(12),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        Column(
+                          children: [
+                            const Text(
+                              'Measurements',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey,
+                              ),
+                            ),
+                            Text(
+                              _measurements.length.toString(),
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.blue[700],
+                              ),
+                            ),
+                          ],
+                        ),
+                        Column(
+                          children: [
+                            const Text(
+                              'Latest Height',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey,
+                              ),
+                            ),
+                            Text(
+                              '${_measurements.first.hoehe.toStringAsFixed(3)} m',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.blue[700],
+                              ),
+                            ),
+                          ],
+                        ),
+                        Column(
+                          children: [
+                            const Text(
+                              'Latest Rotation',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey,
+                              ),
+                            ),
+                            Text(
+                              '${_measurements.first.rotation.toStringAsFixed(2)} rps',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.blue[700],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
 
                 // Error log (collapsible)
                 if (_errors.isNotEmpty)
