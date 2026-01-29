@@ -5,10 +5,17 @@ import 'package:intl/intl.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import '../services/api_service.dart';
 import '../services/disc_service.dart';
+import '../services/auth_service.dart';
 import '../styles/app_colors.dart';
 import '../styles/app_font.dart';
 import '../widgets/stat_card.dart';
 import '../models/wurf.dart';
+
+enum StatMetric {
+  rotation,
+  height,
+  acceleration,
+}
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -21,55 +28,85 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   // DiscService-backed selectable discs
   final _discSvc = DiscService.instance();
-  List<String> discs = List.generate(10, (i) => 'DISC-${(i + 1).toString().padLeft(2, '0')}');
-  String selectedDisc = 'DISC-01';
-  late Future<List<Wurf>> _wurfeF;
+  List<String> discNames = [];
+  Map<String, String> discNameToId = {}; // Map name -> id
+  String? selectedDiscId; // null = "Alle", otherwise the disc ID
+  StatMetric selectedMetric = StatMetric.rotation;
+  Future<List<Wurf>>? _wurfeF;
+  Future<Map<String, dynamic>>? _statsF;
   bool _localeReady = false;
-  VoidCallback? _discsListener;
+  bool _isInitialized = false;
+  String? _currentUserRole; // Store role for _reload()
 
   @override
   void initState() {
     super.initState();
+    // Initialize futures immediately to prevent LateInitializationError
+    _wurfeF = Future.value(<Wurf>[]);
+    _statsF = Future.value(<String, dynamic>{});
+    
     initializeDateFormatting('de_AT').then((_) {
       if (mounted) setState(() => _localeReady = true);
     });
-    _reload();
-    _initDiscs();
+    _loadUserAndDiscs();
   }
 
-  Future<void> _initDiscs() async {
-    await _discSvc.init();
-    // populate local discs list from stored data, fallback to generated if empty
-    final stored = _discSvc.discs.value.map((m) => (m['name'] ?? '').toString()).where((s) => s.isNotEmpty).toList();
-    if (stored.isNotEmpty) {
-      setState(() {
-        discs = stored;
-        if (!discs.contains(selectedDisc)) selectedDisc = discs.first;
-      });
-    }
-    // Listen for changes (e.g., when user edits discs in Discs screen)
-    _discsListener = () {
-      if (!mounted) return;
-      final vals = _discSvc.discs.value.map((m) => (m['name'] ?? '').toString()).where((s) => s.isNotEmpty).toList();
-      setState(() {
-        discs = vals.isNotEmpty ? vals : List.generate(10, (i) => 'DISC-${(i + 1).toString().padLeft(2, '0')}');
-        if (!discs.contains(selectedDisc)) selectedDisc = discs.isNotEmpty ? discs.first : 'DISC-01';
-      });
+  Future<void> _loadUserAndDiscs() async {
+    final auth = AuthService();
+    final role = await auth.currentUserRole();
+    final playerId = role == 'player' ? await auth.currentUserId() : null;
+    setState(() => _currentUserRole = role);
+    await _initDiscs(playerId: playerId);
+    if (mounted) {
       _reload();
-    };
-    _discSvc.discs.addListener(_discsListener!);
-  }
-
-  @override
-  void dispose() {
-    if (_discsListener != null) {
-      _discSvc.discs.removeListener(_discsListener!);
+      setState(() => _isInitialized = true);
     }
-    super.dispose();
   }
 
-  void _reload() {
-    _wurfeF = api.getWuerfe(limit: 50, scheibeId: selectedDisc);
+  Future<void> _initDiscs({String? playerId}) async {
+    await _discSvc.init(playerId: playerId);
+    await _updateDiscLists();
+    _discSvc.discs.addListener(() async {
+      await _updateDiscLists();
+      // Reload data when discs change (e.g., after assignment)
+      _reload();
+    });
+  }
+
+  Future<void> _updateDiscLists() async {
+    final discList = _discSvc.discs.value;
+    final names = <String>[];
+    final nameToId = <String, String>{};
+    
+    for (final disc in discList) {
+      final id = (disc['id'] as String?) ?? '';
+      final name = (disc['name'] as String?) ?? id;
+      if (id.isNotEmpty && name.isNotEmpty) {
+        names.add(name);
+        nameToId[name] = id;
+      }
+    }
+    
+    setState(() {
+      discNames = names;
+      discNameToId = nameToId;
+      if (selectedDiscId != null) {
+        final stillExists = nameToId.values.contains(selectedDiscId);
+        if (!stillExists) {
+          selectedDiscId = null;
+        }
+      }
+    });
+  }
+
+  void _reload({String? playerId}) {
+    // Für Player: playerId NICHT übergeben - Backend filtert automatisch basierend auf Token
+    // Für Trainer: playerId kann optional übergeben werden, um einen spezifischen Player zu filtern
+    final role = _currentUserRole;
+    final finalPlayerId = (role == 'trainer' && playerId != null) ? playerId : null;
+    
+    _wurfeF = api.getWuerfe(limit: 50, scheibeId: selectedDiscId, playerId: finalPlayerId);
+    _statsF = api.getSummary(scheibeId: selectedDiscId, playerId: finalPlayerId);
     setState(() {});
   }
 
@@ -87,10 +124,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Defensive check: ensure futures are initialized
+    if (!_isInitialized || _wurfeF == null || _statsF == null) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+    
     return Scaffold(
       body: SafeArea(
         child: FutureBuilder<List<Wurf>>(
-        future: _wurfeF,
+        future: _wurfeF!,
         builder: (c, s) {
           if (s.connectionState != ConnectionState.done) {
             return const Center(child: CircularProgressIndicator());
@@ -144,17 +188,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 12),
                   child: DropdownButtonHideUnderline(
-                    child: DropdownButton<String>(
-                      value: selectedDisc,
+                    child: DropdownButton<String?>(
+                      value: selectedDiscId,
                       isExpanded: true,
                       borderRadius: BorderRadius.circular(12),
-                      items: discs
-                          .map((d) => DropdownMenuItem(value: d, child: Text(d)))
-                          .toList(),
+                      items: [
+                        const DropdownMenuItem<String?>(value: null, child: Text('Alle')),
+                        ...discNames.map((name) => DropdownMenuItem<String?>(
+                          value: discNameToId[name],
+                          child: Text(name),
+                        )),
+                      ],
                       onChanged: (v) {
-                        if (v == null) return;
-                        setState(() => selectedDisc = v);
-                        _reload();
+                        setState(() => selectedDiscId = v);
+                        _reload(); // Reload ohne playerId - Backend filtert automatisch
                       },
                     ),
                   ),
@@ -217,7 +264,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
               // Show which disc these throws belong to
               Padding(
                 padding: const EdgeInsets.only(bottom: 8.0),
-                child: Text('Disc: $selectedDisc', style: AppFont.subheadline),
+                child: Text(
+                  'Disc: ${selectedDiscId == null ? "Alle" : discNameToId.entries.firstWhere((e) => e.value == selectedDiscId, orElse: () => MapEntry("", selectedDiscId ?? "")).key}',
+                  style: AppFont.subheadline,
+                ),
               ),
 
               const SizedBox(height: 4),

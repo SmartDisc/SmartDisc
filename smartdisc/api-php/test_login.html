@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Login Test</title>
+</head>
+<body>
+    <h1>Login Test</h1>
+    <p>E-Mail: mohanakovac@gmail.com</p>
+    <p>Passwort: test123</p>
+    <button onclick="testLogin()">Login testen</button>
+    <pre id="result"></pre>
+    <script>
+        async function testLogin() {
+            const result = document.getElementById('result');
+            try {
+                const response = await fetch('http://localhost:8000/api/auth/login', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        email: 'mohanakovac@gmail.com',
+                        password: 'test123'
+                    })
+                });
+                const data = await response.json();
+                result.textContent = JSON.stringify(data, null, 2);
+            } catch (error) {
+                result.textContent = 'Fehler: ' + error.message;
+            }
+        }
+    </script>
+</body>
+</html>

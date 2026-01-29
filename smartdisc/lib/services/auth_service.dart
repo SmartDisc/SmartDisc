@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../env.dart';
+import 'disc_service.dart';
 
 class AuthService {
   static const String _tokenKey = 'auth_token';
@@ -47,6 +48,14 @@ class AuthService {
     await prefs.remove(_userIdKey);
     await prefs.remove(_firstNameKey);
     await prefs.remove(_lastNameKey);
+    
+    // Disc-Cache auch löschen
+    try {
+      final discService = DiscService.instance();
+      await discService.clearCache();
+    } catch (e) {
+      // Ignore if disc service not available
+    }
   }
 
   Future<void> login({required String email, required String password}) async {

@@ -2,8 +2,36 @@
 
 // GET /api/scheiben - Liste aller Messsysteme/Scheiben
 if ($path === "$prefix/scheiben" && $method === 'GET') {
-  $stmt = $pdo->query("SELECT id, name, modell, seriennummer, firmware_version, kalibrierungsdatum, erstellt_am FROM scheiben WHERE aktiv = 1 ORDER BY erstellt_am DESC");
-  json_response(['items' => $stmt->fetchAll()]);
+  $token = get_bearer_token();
+  $user = $token ? get_user_by_token($token) : null;
+  $userRole = $user['role'] ?? null;
+  $userId = $user['id'] ?? null;
+  
+  // Für Player: STRICT - Nur zugeordnete Discs anzeigen (Authentifizierung erforderlich)
+  if ($userRole === 'player') {
+    if (!$token || !$user || !$userId) {
+      // Player ohne Auth = keine Discs
+      json_response(['items' => []]);
+      exit;
+    }
+    // Nur zugeordnete Discs - keine Fallbacks
+    $stmt = $pdo->prepare("
+      SELECT s.id, s.name, s.modell, s.seriennummer, s.firmware_version, s.kalibrierungsdatum, s.erstellt_am 
+      FROM scheiben s
+      INNER JOIN player_discs pd ON s.id = pd.disc_id
+      WHERE pd.player_id = :player_id AND s.aktiv = 1
+      ORDER BY s.erstellt_am DESC
+    ");
+    $stmt->execute([':player_id' => $userId]);
+    json_response(['items' => $stmt->fetchAll()]);
+  } else if ($userRole === 'trainer') {
+    // Trainer sieht alle aktiven Discs
+    $stmt = $pdo->query("SELECT id, name, modell, seriennummer, firmware_version, kalibrierungsdatum, erstellt_am FROM scheiben WHERE aktiv = 1 ORDER BY erstellt_am DESC");
+    json_response(['items' => $stmt->fetchAll()]);
+  } else {
+    // Keine Authentifizierung oder unbekannte Rolle
+    json_response(['error' => ['code' => 'UNAUTHORIZED', 'message' => 'Authentifizierung erforderlich']], 401);
+  }
 }
 
 // POST /api/scheiben - Neues Messsystem registrieren

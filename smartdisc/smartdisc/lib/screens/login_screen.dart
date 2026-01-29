@@ -22,8 +22,8 @@ class _LoginScreenState extends State<LoginScreen> {
   final AuthService _auth = AuthService();
   
   // State-Variablen
-  bool _isSubmitting = false; // Zeigt an, ob Login-Prozess läuft
-  String? _errorMessage; // Fehlermeldung (null = kein Fehler)
+  bool _isSubmitting = false;  // Zeigt an, ob Login-Prozess läuft
+  String? _errorMessage;       // Fehlermeldung (null = kein Fehler)
 
   @override
   void dispose() {
@@ -46,9 +46,11 @@ class _LoginScreenState extends State<LoginScreen> {
     if (!value.contains('@')) {
       return 'Ungültige E-Mail';
     }
-    return null;
+    return null;  // Gültig
   }
 
+  /// Validiert Passwort-Eingabe
+  /// Gibt null zurück wenn gültig, sonst Fehlermeldung
   String? _validatePassword(String? value) {
     if (value == null || value.isEmpty) {
       return 'Bitte Passwort eingeben';
@@ -56,45 +58,74 @@ class _LoginScreenState extends State<LoginScreen> {
     if (value.length < 6) {
       return 'Mindestens 6 Zeichen';
     }
-    return null;
+    return null;  // Gültig
   }
 
-  Future<void> _navigateAfterLogin() async {
-    final role = await _auth.currentUserRole();
-    if (!mounted) return;
-    if (role == 'player') {
-      Navigator.of(context).pushReplacementNamed('/player/dashboard');
-    } else if (role == 'trainer') {
-      Navigator.of(context).pushReplacementNamed('/trainer/dashboard');
-    } else {
-      Navigator.of(context).pushReplacementNamed('/auth');
-    }
-  }
+  // ============================================
+  // LOGIN-LOGIK
+  // ============================================
 
+  /// Führt Login-Prozess aus
+  /// 1. Validiert Formular
+  /// 2. Ruft API auf
+  /// 3. Navigiert basierend auf Rolle
   Future<void> _submit() async {
-    if (!_formKey.currentState!.validate()) return;
+    // Formular-Validierung
+    if (!_formKey.currentState!.validate()) {
+      return;  // Stoppt wenn Validierung fehlschlägt
+    }
+
+    // Loading-State aktivieren
     setState(() {
       _isSubmitting = true;
-      _errorMessage = null;
+      _errorMessage = null;  // Alte Fehler löschen
     });
+
     try {
+      // API-Aufruf: Login
       await _auth.login(
         email: _emailController.text.trim(),
         password: _passwordController.text,
       );
+
+      // Navigation nach erfolgreichem Login
       await _navigateAfterLogin();
     } catch (e) {
+      // Fehlerbehandlung
       if (!mounted) return;
       setState(() {
         _errorMessage = e.toString().replaceFirst('Exception: ', '');
       });
     } finally {
+      // Loading-State deaktivieren
       if (mounted) {
         setState(() => _isSubmitting = false);
       }
     }
   }
 
+  /// Navigiert nach Login basierend auf Benutzer-Rolle
+  /// Player → /player/dashboard
+  /// Coach → /coach/dashboard
+  Future<void> _navigateAfterLogin() async {
+    final role = await _auth.currentUserRole();
+    if (!mounted) return;
+
+    if (role == 'player') {
+      Navigator.of(context).pushReplacementNamed('/player/dashboard');
+    } else if (role == 'coach') {
+      Navigator.of(context).pushReplacementNamed('/coach/dashboard');
+    } else {
+      // Fallback: Zurück zum Auth-Screen
+      Navigator.of(context).pushReplacementNamed('/auth');
+    }
+  }
+
+  // ============================================
+  // UI-WIDGETS
+  // ============================================
+
+  /// E-Mail-Eingabefeld
   Widget _buildEmailField() {
     return TextFormField(
       controller: _emailController,
@@ -104,17 +135,22 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
+  /// Passwort-Eingabefeld (versteckt)
   Widget _buildPasswordField() {
     return TextFormField(
       controller: _passwordController,
-      decoration: const InputDecoration(hintText: 'Password'),
-      obscureText: true,
+      decoration: const InputDecoration(hintText: 'Passwort'),
+      obscureText: true,  // Passwort wird versteckt
       validator: _validatePassword,
     );
   }
 
+  /// Fehler-Banner (nur sichtbar wenn Fehler vorhanden)
   Widget _buildErrorBanner() {
-    if (_errorMessage == null) return const SizedBox.shrink();
+    if (_errorMessage == null) {
+      return const SizedBox.shrink();  // Kein Fehler = unsichtbar
+    }
+
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -137,11 +173,13 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
+  /// Haupt-Login-Button
+  /// Zeigt Loading-Indikator während Login-Prozess
   Widget _buildPrimaryButton() {
     return SizedBox(
       width: double.infinity,
       child: ElevatedButton(
-        onPressed: _isSubmitting ? null : _submit,
+        onPressed: _isSubmitting ? null : _submit,  // Deaktiviert während Login
         child: _isSubmitting
             ? const SizedBox(
                 width: 18,
@@ -156,50 +194,81 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Log in')),
+      appBar: AppBar(
+        title: const Text('Login'),
+        automaticallyImplyLeading: false,  // Kein Zurück-Pfeil
+      ),
       body: SafeArea(
-        child: Container(
-          width: double.infinity,
-          color: AppColors.background,
-          child: Center(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 32),
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 420),
-                child: Form(
-                  key: _formKey,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      const _Header(),
-                      const SizedBox(height: 32),
-                      Text('Log in', style: AppFont.headline),
-                      const SizedBox(height: 28),
-                      _buildEmailField(),
-                      const SizedBox(height: 16),
-                      _buildPasswordField(),
-                      const SizedBox(height: 16),
-                      _buildErrorBanner(),
-                      const SizedBox(height: 24),
-                      _buildPrimaryButton(),
-                      const SizedBox(height: 20),
-                      const _OrDivider(),
-                      const SizedBox(height: 20),
-                      SizedBox(
-                        width: double.infinity,
-                        child: OutlinedButton(
-                          onPressed: () => Navigator.pushNamed(context, '/auth/register'),
-                          child: const Text('Create Account'),
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
+        child: _buildBody(),
+      ),
+    );
+  }
+
+  /// Haupt-Body des Login-Screens
+  Widget _buildBody() {
+    return Container(
+      width: double.infinity,
+      color: AppColors.background,
+      child: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 32),
+          child: _buildLoginForm(),
         ),
+      ),
+    );
+  }
+
+  /// Login-Formular mit allen Eingabefeldern und Buttons
+  Widget _buildLoginForm() {
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 420),
+      child: Form(
+        key: _formKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            // Logo/Header
+            const _Header(),
+            const SizedBox(height: 32),
+            
+            // Titel
+            Text('Login', style: AppFont.headline),
+            const SizedBox(height: 28),
+            
+            // Eingabefelder
+            _buildEmailField(),
+            const SizedBox(height: 16),
+            _buildPasswordField(),
+            const SizedBox(height: 16),
+            
+            // Fehlermeldung (falls vorhanden)
+            _buildErrorBanner(),
+            const SizedBox(height: 24),
+            
+            // Login-Button
+            _buildPrimaryButton(),
+            const SizedBox(height: 20),
+            
+            // Trennlinie "oder"
+            const _OrDivider(),
+            const SizedBox(height: 20),
+            
+            // Registrierungs-Button
+            _buildRegisterButton(),
+            const SizedBox(height: 4),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Button zum Navigieren zur Registrierung
+  Widget _buildRegisterButton() {
+    return SizedBox(
+      width: double.infinity,
+      child: OutlinedButton(
+        onPressed: () => Navigator.pushNamed(context, '/auth/register'),
+        child: const Text('Create Account'),
       ),
     );
   }

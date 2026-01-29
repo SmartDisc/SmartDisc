@@ -104,6 +104,19 @@ CREATE TABLE IF NOT EXISTS highscores (
 
 CREATE INDEX IF NOT EXISTS idx_highscores_user_id ON highscores(user_id);
 
+-- Table for disc assignments (trainer assigns discs to players)
+CREATE TABLE IF NOT EXISTS player_discs (
+    player_id TEXT NOT NULL,
+    disc_id TEXT NOT NULL,
+    assigned_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')) NOT NULL,
+    PRIMARY KEY (player_id, disc_id),
+    FOREIGN KEY (player_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (disc_id) REFERENCES scheiben(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_player_discs_player_id ON player_discs(player_id);
+CREATE INDEX IF NOT EXISTS idx_player_discs_disc_id ON player_discs(disc_id);
+
 -- Triggers for automatic audit logging
 CREATE TRIGGER IF NOT EXISTS trigger_wurfe_update AFTER UPDATE ON wurfe
 BEGIN

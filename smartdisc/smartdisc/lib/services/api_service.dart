@@ -1,7 +1,6 @@
 // lib/services/api_service.dart
 import 'dart:convert';
 import 'dart:math';
-import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../env.dart';
 import '../models/wurf.dart';
@@ -28,46 +27,23 @@ class ApiService {
   ).replace(queryParameters: q?.map((k, v) => MapEntry(k, '$v')));
 
   // ---- READ ----
-  Future<List<Wurf>> getWuerfe({int limit = 20, String? scheibeId, String? playerId}) async {
-    final headers = await _getAuthHeaders();
+  Future<List<Wurf>> getWuerfe({int limit = 20, String? scheibeId}) async {
     final q = <String, dynamic>{'limit': limit};
-    if (scheibeId != null) q['scheibe_id'] = scheibeId;
-    // playerId Parameter nur für Trainer (wenn Trainer einen spezifischen Player filtern will)
-    // Für Player: Backend filtert automatisch basierend auf Token
-    if (playerId != null) {
-      final role = await _authService.currentUserRole();
-      if (role == 'trainer') {
-        q['player_id'] = playerId;
-      }
-      // Player sollte playerId NICHT übergeben - Backend filtert automatisch
-    }
+    if (scheibeId != null) q['scheibe_id'] = scheibeId; // <-- add filter
     try {
-      final res = await _client.get(_u('/wurfe', q), headers: headers);
+      final res = await _client.get(_u('/wurfe', q));
       if (res.statusCode != 200) {
-        debugPrint('getWuerfe failed: ${res.statusCode} - ${res.body}');
-        return [];
+        // fallback to dummy data
+        return await _generateDummyWuerfe(limit, scheibeId);
       }
       final body = jsonDecode(res.body) as Map<String, dynamic>;
       final items = (body['items'] as List).cast<Map<String, dynamic>>();
       final list = items.map(Wurf.fromJson).toList();
-      
-      // Debug logging
-      if (kDebugMode) {
-        debugPrint('getWuerfe: loaded ${list.length} throws');
-        if (list.isNotEmpty) {
-          final first = list.first;
-          debugPrint('  First throw: disc=${first.scheibeId}, rot=${first.rotation}, height=${first.hoehe}, accel=${first.accelerationMax}');
-        }
-        if (scheibeId != null) {
-          final discThrows = list.where((w) => w.scheibeId == scheibeId).length;
-          debugPrint('  Throws for disc $scheibeId: $discThrows');
-        }
-      }
-      
+      if (list.isEmpty) return await _generateDummyWuerfe(limit, scheibeId);
       return list;
     } catch (e) {
-      debugPrint('getWuerfe error: $e');
-      return [];
+      // network or parsing error — return dummy data so UI can show samples
+      return await _generateDummyWuerfe(limit, scheibeId);
     }
   }
 
@@ -127,52 +103,29 @@ class ApiService {
   }
 
   Future<Map<String, dynamic>> getSummary({String? scheibeId, String? playerId}) async {
-    final headers = await _getAuthHeaders();
-    final queryParams = <String, String>{};
+    final queryParams = <String>[];
     if (scheibeId != null && scheibeId.isNotEmpty) {
-      queryParams['scheibe_id'] = scheibeId;
+      queryParams.add('scheibe_id=$scheibeId');
     }
-    // playerId Parameter nur für Trainer (wenn Trainer einen spezifischen Player filtern will)
     if (playerId != null && playerId.isNotEmpty) {
-      final role = await _authService.currentUserRole();
-      if (role == 'trainer') {
-        queryParams['player_id'] = playerId;
-      }
-      // Player sollte playerId NICHT übergeben - Backend filtert automatisch
+      queryParams.add('player_id=$playerId');
     }
     final uri = queryParams.isNotEmpty
-        ? _u('/stats/summary', queryParams)
+        ? _u('/stats/summary?${queryParams.join('&')}')
         : _u('/stats/summary');
-    final res = await _client.get(uri, headers: headers);
+    final res = await _client.get(uri);
     if (res.statusCode != 200) {
-      debugPrint('getSummary failed: ${res.statusCode} - ${res.body}');
-      return {
-        'count': 0,
-        'rotationMax': 0.0,
-        'rotationAvg': 0.0,
-        'heightMax': 0.0,
-        'heightAvg': 0.0,
-        'accelerationMax': 0.0,
-        'accelerationAvg': 0.0,
-      };
+      throw Exception('summary failed: ${res.statusCode}');
     }
-    final stats = jsonDecode(res.body) as Map<String, dynamic>;
-    
-    // Debug logging
-    if (kDebugMode) {
-      debugPrint('getSummary: count=${stats['count']}, rotMax=${stats['rotationMax']}, heightMax=${stats['heightMax']}');
-    }
-    
-    return stats;
+    return jsonDecode(res.body) as Map<String, dynamic>;
   }
 
   /// Fetch all active discs from the backend
   Future<List<Map<String, dynamic>>> getDiscs({String? playerId}) async {
-    final headers = await _getAuthHeaders();
     final uri = playerId != null 
-        ? _u('/scheiben', {'player_id': playerId})
+        ? _u('/scheiben?player_id=$playerId')
         : _u('/scheiben');
-    final res = await _client.get(uri, headers: headers);
+    final res = await _client.get(uri);
     if (res.statusCode != 200) {
       throw Exception('getDiscs failed: ${res.statusCode}');
     }
@@ -181,36 +134,34 @@ class ApiService {
     return items;
   }
 
-  // ---- TRAINER ----
-  /// Get all players (trainer only)
+  // ---- COACH ----
+  /// Get all players (coach only)
   Future<List<Map<String, dynamic>>> getPlayers() async {
     final headers = await _getAuthHeaders();
-    final res = await _client.get(_u('/trainer/players'), headers: headers);
+    final res = await _client.get(_u('/coach/players'), headers: headers);
     if (res.statusCode != 200) {
       throw Exception('getPlayers failed: ${res.statusCode}');
     }
     final body = jsonDecode(res.body) as Map<String, dynamic>;
-    final items = (body['items'] as List).cast<Map<String, dynamic>>();
-    return items;
+    return (body['items'] as List).cast<Map<String, dynamic>>();
   }
 
-  /// Fetch discs assigned to a specific player
+  /// Get discs assigned to a player
   Future<List<Map<String, dynamic>>> getPlayerDiscs(String playerId) async {
     final headers = await _getAuthHeaders();
-    final res = await _client.get(_u('/trainer/players/$playerId/discs'), headers: headers);
+    final res = await _client.get(_u('/coach/players/$playerId/discs'), headers: headers);
     if (res.statusCode != 200) {
       throw Exception('getPlayerDiscs failed: ${res.statusCode}');
     }
     final body = jsonDecode(res.body) as Map<String, dynamic>;
-    final items = (body['items'] as List).cast<Map<String, dynamic>>();
-    return items;
+    return (body['items'] as List).cast<Map<String, dynamic>>();
   }
 
-  /// Assign a disc to a player
+  /// Assign disc to player
   Future<void> assignDiscToPlayer(String playerId, String discId) async {
     final headers = await _getAuthHeaders();
     final res = await _client.post(
-      _u('/trainer/players/$playerId/discs'),
+      _u('/coach/players/$playerId/discs'),
       headers: headers,
       body: jsonEncode({'disc_id': discId}),
     );
@@ -225,13 +176,11 @@ class ApiService {
   Future<void> removeDiscFromPlayer(String playerId, String discId) async {
     final headers = await _getAuthHeaders();
     final res = await _client.delete(
-      _u('/trainer/players/$playerId/discs/$discId'),
+      _u('/coach/players/$playerId/discs/$discId'),
       headers: headers,
     );
     if (res.statusCode != 200) {
-      final errorBody = jsonDecode(res.body) as Map<String, dynamic>;
-      final errorMsg = errorBody['error']?['message'] ?? 'Unknown error';
-      throw Exception('removeDisc failed: ${res.statusCode} - $errorMsg');
+      throw Exception('removeDisc failed: ${res.statusCode}');
     }
   }
 

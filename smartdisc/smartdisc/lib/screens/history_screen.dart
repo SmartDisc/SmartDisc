@@ -17,20 +17,17 @@ class HistoryScreen extends StatefulWidget {
 class _HistoryScreenState extends State<HistoryScreen> {
   final ApiService _api = ApiService();
   final DiscService _discService = DiscService.instance();
-  Future<List<Wurf>>? _wurfeF;
+  late Future<List<Wurf>> _wurfeF;
   bool _localeReady = false;
-  bool _isInitialized = false;
 
   @override
   void initState() {
     super.initState();
-    // Initialize future immediately to prevent LateInitializationError
-    _wurfeF = Future.value(<Wurf>[]);
-    
     initializeDateFormatting('de_AT').then((_) {
       if (mounted) setState(() => _localeReady = true);
     });
     _initDiscs();
+    _reload();
   }
 
   Future<void> _initDiscs() async {
@@ -38,10 +35,6 @@ class _HistoryScreenState extends State<HistoryScreen> {
     final role = await auth.currentUserRole();
     final playerId = role == 'player' ? await auth.currentUserId() : null;
     await _discService.init(playerId: playerId);
-    if (mounted) {
-      await _reload();
-      setState(() => _isInitialized = true);
-    }
   }
 
   String _getDiscDisplayName(String? discId) {
@@ -53,9 +46,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
     return (disc['name'] as String?) ?? discId;
   }
 
-  Future<void> _reload() async {
-    // Für Player: playerId NICHT übergeben - Backend filtert automatisch
-    // Für Trainer: playerId bleibt null, sieht alle Daten
+  void _reload() {
     _wurfeF = _api.getWuerfe(limit: 200);
     setState(() {});
   }
@@ -71,16 +62,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Defensive check
-    if (!_isInitialized || _wurfeF == null) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
-    }
-    
     return Scaffold(
       body: FutureBuilder<List<Wurf>>(
-        future: _wurfeF!,
+        future: _wurfeF,
         builder: (c, s) {
           if (s.connectionState != ConnectionState.done) {
             return const Center(child: CircularProgressIndicator());
@@ -114,7 +98,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
           final sessionKeys = sessionsMap.keys.toList()..sort((a, b) => b.compareTo(a));
 
           return RefreshIndicator(
-            onRefresh: _reload,
+            onRefresh: () async => _reload(),
             child: ListView.builder(
               padding: const EdgeInsets.all(12),
               itemCount: sessionKeys.length,

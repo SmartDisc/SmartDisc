@@ -60,10 +60,6 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
   Future<void> _loadWurfe() async {
     setState(() => _isLoading = true);
     try {
-      final auth = AuthService();
-      final role = await auth.currentUserRole();
-      // Für Player: playerId NICHT übergeben - Backend filtert automatisch
-      // Für Trainer: playerId bleibt null, sieht alle Daten
       final wurfe = await _apiService.getWuerfe(limit: 100);
       // Sort by timestamp (oldest first for graph)
       wurfe.sort((a, b) {
@@ -174,9 +170,10 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
 
   List<Map<String, String>> _getAvailableDiscs() {
     // Get discs from DiscService (backend-managed) - these are the source of truth
+    // Für Player sind bereits nur zugeordnete Discs enthalten
     final discMap = <String, String>{}; // id -> display name
     
-    // First, add all discs from backend
+    // Nur Discs aus DiscService verwenden (bereits gefiltert für Player)
     for (final disc in _discService.discs.value) {
       final id = (disc['id'] as String?) ?? '';
       if (id.isNotEmpty) {
@@ -184,14 +181,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
       }
     }
     
-    // Also include any disc IDs from throws (in case there's data for a disc that's been deleted)
-    for (final wurf in _allWurfe) {
-      if (wurf.scheibeId != null && wurf.scheibeId!.isNotEmpty) {
-        if (!discMap.containsKey(wurf.scheibeId)) {
-          discMap[wurf.scheibeId!] = wurf.scheibeId!;
-        }
-      }
-    }
+    // Discs aus Würfen NICHT mehr hinzufügen, da diese möglicherweise nicht zugeordnet sind
     
     // Convert to list of maps for easier handling
     return discMap.entries

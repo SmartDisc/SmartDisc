@@ -11,13 +11,18 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  late final Future<_ProfileData> _future = _loadProfile();
+  late Future<_ProfileData> _future = _loadProfile();
 
   Future<_ProfileData> _loadProfile() async {
-    final auth = AuthService();
-    final email = await auth.currentUserEmail();
-    final role = await auth.currentUserRole();
-    return _ProfileData(email: email, role: role);
+    try {
+      final auth = AuthService();
+      final email = await auth.currentUserEmail();
+      final role = await auth.currentUserRole();
+      return _ProfileData(email: email, role: role);
+    } catch (e) {
+      // Fallback-Werte bei Fehler
+      return _ProfileData(email: null, role: null);
+    }
   }
 
   String _roleLabel(String? role) {
@@ -85,15 +90,63 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  Future<void> _handleLogout() async {
+    final auth = AuthService();
+    await auth.logout();
+    if (!mounted) return;
+    Navigator.of(context).pushReplacementNamed('/auth');
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: FutureBuilder<_ProfileData>(
         future: _future,
         builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          
+          if (snapshot.hasError) {
+            // Fehlerbehandlung statt roter Bildschirm
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.error_outline, size: 64, color: Colors.grey),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Fehler beim Laden der Profildaten',
+                      style: AppFont.headline,
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      snapshot.error.toString(),
+                      style: AppFont.body,
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 24),
+                    ElevatedButton(
+                      onPressed: () {
+                        setState(() {
+                          _future = _loadProfile();
+                        });
+                      },
+                      child: const Text('Erneut versuchen'),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }
+          
           if (!snapshot.hasData) {
             return const Center(child: CircularProgressIndicator());
           }
+          
           final data = snapshot.data!;
           return Padding(
             padding: const EdgeInsets.all(24),
@@ -103,6 +156,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 _buildHeader(data),
                 const SizedBox(height: 32),
                 _buildDetails(data),
+                const Spacer(),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: _handleLogout,
+                    icon: const Icon(Icons.logout_rounded),
+                    label: const Text('Logout'),
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      backgroundColor: Colors.red,
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
               ],
             ),
           );

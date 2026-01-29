@@ -5,7 +5,6 @@ import 'history_screen.dart';
 import 'profile_screen.dart';
 import 'discs_screen.dart';
 import 'disc_assignment_screen.dart';
-import 'ble_test_screen.dart';
 import '../services/auth_service.dart';
 import '../services/disc_service.dart';
 
@@ -41,7 +40,7 @@ class _AppShellState extends State<AppShell> {
   }
 
   void _buildPages() {
-    if (_userRole == 'trainer') {
+    if (_userRole == 'coach') {
       _titles = [
         'Dashboard',
         'Analysis',
@@ -49,7 +48,6 @@ class _AppShellState extends State<AppShell> {
         'Discs',
         'Zuordnung',
         'Profile',
-        'BLE Connect',
       ];
       _pages = [
         const DashboardScreen(),
@@ -58,7 +56,6 @@ class _AppShellState extends State<AppShell> {
         const DiscsScreen(),
         const DiscAssignmentScreen(),
         const ProfileScreen(),
-        BleTestScreen(),
       ];
     } else {
       _titles = [
@@ -67,7 +64,6 @@ class _AppShellState extends State<AppShell> {
         'History',
         'Discs',
         'Profile',
-        'BLE Connect',
       ];
       _pages = [
         const DashboardScreen(),
@@ -75,7 +71,6 @@ class _AppShellState extends State<AppShell> {
         const HistoryScreen(),
         const DiscsScreen(),
         const ProfileScreen(),
-        BleTestScreen(),
       ];
     }
   }
@@ -215,7 +210,7 @@ class _AppShellState extends State<AppShell> {
   }
 
   List<BottomNavigationBarItem> _buildNavItems() {
-    if (_userRole == 'trainer') {
+    if (_userRole == 'coach') {
       return const [
         BottomNavigationBarItem(icon: Icon(Icons.dashboard), label: 'Dashboard'),
         BottomNavigationBarItem(icon: Icon(Icons.analytics), label: 'Analysis'),
@@ -223,7 +218,6 @@ class _AppShellState extends State<AppShell> {
         BottomNavigationBarItem(icon: Icon(Icons.storage_rounded), label: 'Discs'),
         BottomNavigationBarItem(icon: Icon(Icons.assignment), label: 'Zuordnung'),
         BottomNavigationBarItem(icon: Icon(Icons.person_rounded), label: 'Profile'),
-        BottomNavigationBarItem(icon: Icon(Icons.bluetooth), label: 'BLE'),
       ];
     } else {
       return const [
@@ -232,7 +226,6 @@ class _AppShellState extends State<AppShell> {
         BottomNavigationBarItem(icon: Icon(Icons.history_rounded), label: 'History'),
         BottomNavigationBarItem(icon: Icon(Icons.storage_rounded), label: 'Discs'),
         BottomNavigationBarItem(icon: Icon(Icons.person_rounded), label: 'Profile'),
-        BottomNavigationBarItem(icon: Icon(Icons.bluetooth), label: 'BLE'),
       ];
     }
   }
@@ -240,14 +233,13 @@ class _AppShellState extends State<AppShell> {
   @override
   Widget build(BuildContext context) {
     if (_userRole == null) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
+
     return Scaffold(
       appBar: AppBar(
         title: Text(_titles[_selectedIndex]),
-        automaticallyImplyLeading: false,
+        automaticallyImplyLeading: false,  // Kein Zurück-Pfeil
         actions: _getAppBarActions(),
       ),
       body: IndexedStack(index: _selectedIndex, children: _pages),

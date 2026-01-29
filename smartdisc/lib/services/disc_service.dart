@@ -13,9 +13,25 @@ class DiscService {
   final ApiService _api = ApiService();
   final ValueNotifier<List<Map<String, dynamic>>> discs = ValueNotifier([]);
   bool _initialized = false;
+  String? _currentPlayerId;
 
-  Future<void> init() async {
-    if (_initialized) return;
+  Future<void> init({String? playerId}) async {
+    // Wenn sich der playerId ändert, Cache leeren und neu initialisieren
+    if (_initialized && playerId == _currentPlayerId) return;
+    
+    // Wenn wir von Trainer zu Player wechseln oder umgekehrt, Cache leeren
+    if (_initialized && ((playerId != null && _currentPlayerId == null) || (playerId == null && _currentPlayerId != null))) {
+      await clearCache();
+      _initialized = false;
+    }
+    
+    // Für Spieler: Cache IMMER zuerst leeren, um alte Daten zu vermeiden
+    if (playerId != null) {
+      discs.value = []; // Sofort leeren, bevor Backend-Call
+      await clearCache(); // Auch persistenten Cache löschen
+    }
+    
+    _currentPlayerId = playerId;
     await _loadFromBackend();
     _initialized = true;
   }
@@ -23,14 +39,43 @@ class DiscService {
   /// Load discs from backend, with optional cache fallback
   Future<void> _loadFromBackend() async {
     try {
-      final items = await _api.getDiscs();
+      final items = await _api.getDiscs(playerId: _currentPlayerId);
+      
+      // Debug logging
+      if (kDebugMode) {
+        debugPrint('DiscService._loadFromBackend: playerId=${_currentPlayerId}, loaded ${items.length} discs');
+        if (items.isNotEmpty) {
+          debugPrint('  Disc IDs: ${items.map((d) => d['id']).join(', ')}');
+        }
+      }
+      
+      // Für Spieler: Wenn keine Discs zurückgegeben werden, Cache leeren
+      if (_currentPlayerId != null && items.isEmpty) {
+        discs.value = [];
+        await clearCache();
+        return;
+      }
       discs.value = items;
       await _saveCache();
     } catch (e) {
-      // If backend fails, try to load from cache
-      debugPrint('Failed to load discs from backend: $e');
-      await _loadFromCache();
+      // If backend fails or player has no assigned discs, clear cache for players
+      if (_currentPlayerId != null) {
+        debugPrint('Failed to load discs from backend for player or no discs assigned: $e');
+        discs.value = [];
+        await clearCache();
+      } else {
+        // For trainers, try to load from cache
+        debugPrint('Failed to load discs from backend: $e');
+        await _loadFromCache();
+      }
     }
+  }
+  
+  /// Clear cache - useful when switching users or after logout
+  Future<void> clearCache() async {
+    final sp = await SharedPreferences.getInstance();
+    await sp.remove(_kKey);
+    discs.value = [];
   }
 
   /// Save current discs to local cache (for offline access)
@@ -76,7 +121,10 @@ class DiscService {
   }
 
   /// Refresh discs from backend
-  Future<void> refresh() async {
+  Future<void> refresh({String? playerId}) async {
+    if (playerId != null) {
+      _currentPlayerId = playerId;
+    }
     await _loadFromBackend();
   }
 }

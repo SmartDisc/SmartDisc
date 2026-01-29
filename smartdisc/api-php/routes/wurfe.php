@@ -1,18 +1,42 @@
 <?php
 // Throw routes
 
-// List throws (accept both German and English/legacy paths)
-$wurfeListPaths = ["$prefix/wurfe", '/api-php/wurfe', '/api-php/throws'];
-if (in_array($path, $wurfeListPaths, true) && $method === 'GET') {
+// Define paths that accept POST for creating throws
+$wurfeListPaths = ["$prefix/wurfe", "$prefix/api-php/throws"];
+
+// List throws
+if ($path === "$prefix/wurfe" && $method === 'GET') {
+  $token = get_bearer_token();
+  $user = $token ? get_user_by_token($token) : null;
+  $userRole = $user['role'] ?? null;
+  $userId = $user['id'] ?? null;
+
   $limit = isset($_GET['limit']) ? max(1, min(500, intval($_GET['limit']))) : 100;
   $where = ['geloescht = 0'];
   $params = [];
+
+  // Player sieht nur Würfe von zugeordneten Discs - STRICT FILTERING
+  // WICHTIG: Player sieht ALLE Würfe der zugeordneten Discs (unabhängig vom Werfer)
+  if ($userRole === 'player' && $userId) {
+    // Player muss authentifiziert sein
+    if (!$token || !$user) {
+      json_response(['error' => ['code' => 'UNAUTHORIZED', 'message' => 'Authentifizierung erforderlich']], 401);
+      exit;
+    }
+    // Nur Würfe von zugeordneten Discs (KEINE Filterung nach player_id - alle Würfe der Disc!)
+    $where[] = "scheibe_id IN (SELECT disc_id FROM player_discs WHERE player_id = :current_player_id)";
+    $params[':current_player_id'] = $userId;
+  } else if ($userRole === 'player' && !$userId) {
+    // Player ohne userId = keine Daten
+    json_response(['items' => [], 'count' => 0]);
+    exit;
+  }
 
   if (!empty($_GET['scheibe_id'])) {
     $where[] = "scheibe_id = :scheibe_id";
     $params[':scheibe_id'] = $_GET['scheibe_id'];
   }
-  if (!empty($_GET['player_id'])) {
+  if (!empty($_GET['player_id']) && $userRole === 'trainer') {
     $where[] = "player_id = :player_id";
     $params[':player_id'] = $_GET['player_id'];
   }
@@ -26,6 +50,14 @@ if (in_array($path, $wurfeListPaths, true) && $method === 'GET') {
   }
 
   $sql = "SELECT id, scheibe_id, player_id, rotation, hoehe, acceleration_max, erstellt_am FROM wurfe WHERE " . implode(" AND ", $where) . " ORDER BY erstellt_am DESC LIMIT :limit";
+  
+  // Debug logging (only in development)
+  if (isset($_GET['debug']) || (isset($_SERVER['HTTP_X_DEBUG']) && $_SERVER['HTTP_X_DEBUG'] === '1')) {
+    error_log("getWurfe SQL: $sql");
+    error_log("getWurfe params: " . json_encode($params));
+    error_log("getWurfe userRole: $userRole, userId: " . ($userId ?? 'null'));
+  }
+  
   $stmt = $pdo->prepare($sql);
   foreach ($params as $k => $v) {
     if ($k !== ':limit') {
@@ -35,23 +67,29 @@ if (in_array($path, $wurfeListPaths, true) && $method === 'GET') {
   $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
   $stmt->execute();
   $items = $stmt->fetchAll();
+  
+  // Debug: Log result count
+  if (isset($_GET['debug']) || (isset($_SERVER['HTTP_X_DEBUG']) && $_SERVER['HTTP_X_DEBUG'] === '1')) {
+    error_log("getWurfe result count: " . count($items));
+    if (count($items) > 0) {
+      error_log("getWurfe first item: " . json_encode($items[0]));
+    }
+  }
+  
   json_response(['items' => $items, 'count' => count($items)]);
 }
 
-// Get single throw (accept legacy /api-php/throws/:id)
-if ((preg_match("#^$prefix/wurfe/([^/]+)$#", $path, $matches)
-    || preg_match('#^/api-php/(wurfe|throws)/([^/]+)$#', $path, $matches))
-  && $method === 'GET'
-) {
-  $wurfId = end($matches);
+// Get single throw
+if (preg_match("#^$prefix/wurfe/([^/]+)$#", $path, $matches) && $method === 'GET') {
+  $wurfId = $matches[1];
   $stmt = $pdo->prepare("SELECT id, scheibe_id, player_id, rotation, hoehe, acceleration_max, erstellt_am FROM wurfe WHERE id = :id AND geloescht = 0");
   $stmt->execute([':id' => $wurfId]);
   $wurf = $stmt->fetch();
   if (!$wurf) {
     json_response(['error' => ['code' => 'NOT_FOUND', 'message' => 'Wurf nicht gefunden']], 404);
-    exit;
+  } else {
+    json_response($wurf);
   }
-  json_response($wurf);
 }
 
 // Create throw (accept legacy /api-php/throws)

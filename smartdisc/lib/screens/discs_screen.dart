@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 // SharedPreferences usage moved to DiscService
 import '../services/disc_service.dart';
+import '../services/auth_service.dart';
 
 class DiscsScreen extends StatefulWidget {
   const DiscsScreen({super.key});
@@ -22,7 +23,10 @@ class _DiscsScreenState extends State<DiscsScreen> {
   }
 
   Future<void> _init() async {
-    await _svc.init();
+    final auth = AuthService();
+    final role = await auth.currentUserRole();
+    final playerId = role == 'player' ? await auth.currentUserId() : null;
+    await _svc.init(playerId: playerId);
     _discs = List<Map<String, dynamic>>.from(_svc.discs.value);
     // Listen for external changes so UI updates when discs change elsewhere
     _discsListener = () {
