@@ -134,35 +134,27 @@ class _BleTestScreenState extends State<BleTestScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('BLE Connect'),
-        elevation: 0,
-        backgroundColor: Colors.transparent,
-        foregroundColor: Colors.black,
-        automaticallyImplyLeading: false,
-      ),
-      body: !_isInitialized
-          ? const Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.bluetooth_disabled, size: 64, color: Colors.grey),
-                  SizedBox(height: 16),
-                  Text(
-                    'Bluetooth not available',
-                    style: TextStyle(fontSize: 18, color: Colors.grey),
-                  ),
-                  SizedBox(height: 8),
-                  Text(
-                    'Enable Bluetooth in Windows Settings',
-                    style: TextStyle(fontSize: 14, color: Colors.grey),
-                  ),
-                ],
-              ),
-            )
-          : Column(
+    return !_isInitialized
+        ? const Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
+                Icon(Icons.bluetooth_disabled, size: 64, color: Colors.grey),
+                SizedBox(height: 16),
+                Text(
+                  'Bluetooth not available',
+                  style: TextStyle(fontSize: 18, color: Colors.grey),
+                ),
+                SizedBox(height: 8),
+                Text(
+                  'Enable Bluetooth in Windows Settings',
+                  style: TextStyle(fontSize: 14, color: Colors.grey),
+                ),
+              ],
+            ),
+          )
+        : Column(
+            children: [
                 // Large connection status card
                 Padding(
                   padding: const EdgeInsets.all(16.0),
@@ -561,9 +553,8 @@ class _BleTestScreenState extends State<BleTestScreen> {
                     ),
                   ),
               ],
-            ),
-    );
-  }
+            );  // Closes Column - this ends the ternary operator
+  }  // Closes build method
 
   Widget _buildStatusIndicator() {
     final Color color;
