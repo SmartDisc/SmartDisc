@@ -43,3 +43,14 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+# Generated plugin files
+lib/generated_plugin_registrant.dart
+ios/Flutter/GeneratedPluginRegistrant.swift
+android/app/src/main/kotlin/io/flutter/plugins/GeneratedPluginRegistrant.kt
+macos/Flutter/GeneratedPluginRegistrant.swift
+windows/flutter/generated_plugins.cmake
+linux/flutter/generated_plugins.cmake
+web/plugins.js
+
+# Database files
+api-php/data/smartdisc.sqlite
