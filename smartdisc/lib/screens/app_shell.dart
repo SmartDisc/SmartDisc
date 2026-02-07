@@ -57,8 +57,7 @@ class _AppShellState extends State<AppShell> {
     switch (_selectedIndex) {
       case 0: // Dashboard - Logout button
         return [
-          IconButton(
-            tooltip: 'Logout',
+          TextButton.icon(
             onPressed: () async {
               final auth = AuthService();
               await auth.logout();
@@ -66,6 +65,7 @@ class _AppShellState extends State<AppShell> {
               Navigator.of(context).pushReplacementNamed('/auth');
             },
             icon: const Icon(Icons.logout_rounded),
+            label: const Text('Logout'),
           ),
         ];
       case 3: // Discs - Add button

@@ -136,15 +136,11 @@ class _BleTestScreenState extends State<BleTestScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('BLE Test (Windows)'),
-        elevation: 2,
-        actions: [
-          // Connection status indicator
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Center(child: _buildStatusIndicator()),
-          ),
-        ],
+        title: const Text('BLE Connect'),
+        elevation: 0,
+        backgroundColor: Colors.transparent,
+        foregroundColor: Colors.black,
+        automaticallyImplyLeading: false,
       ),
       body: !_isInitialized
           ? const Center(
@@ -167,114 +163,149 @@ class _BleTestScreenState extends State<BleTestScreen> {
             )
           : Column(
               children: [
-                // Connection info card
-                Container(
-                  margin: const EdgeInsets.all(16.0),
+                // Large connection status card
+                Padding(
                   padding: const EdgeInsets.all(16.0),
-                  decoration: BoxDecoration(
-                    color: _connectionState == BleConnectionState.connected
-                        ? Colors.green[50]
-                        : Colors.blue[50],
-                    border: Border.all(
-                      color: _connectionState == BleConnectionState.connected
-                          ? Colors.green
-                          : Colors.blue,
-                      width: 2,
+                  child: Container(
+                    padding: const EdgeInsets.all(24.0),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: _connectionState == BleConnectionState.connected
+                            ? [Colors.green[400]!, Colors.green[600]!]
+                            : _connectionState == BleConnectionState.scanning
+                                ? [Colors.blue[400]!, Colors.blue[600]!]
+                                : [Colors.grey[300]!, Colors.grey[500]!],
+                      ),
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: [
+                        BoxShadow(
+                          color: (_connectionState ==
+                                  BleConnectionState.connected
+                              ? Colors.green
+                              : Colors.blue)
+                              .withOpacity(0.3),
+                          blurRadius: 12,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
                     ),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.info_outline,
-                            color:
-                                _connectionState == BleConnectionState.connected
-                                ? Colors.green
-                                : Colors.blue,
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(
+                              _connectionState == BleConnectionState.connected
+                                  ? Icons.check_circle
+                                  : _connectionState ==
+                                          BleConnectionState.scanning
+                                      ? Icons.bluetooth_searching
+                                      : Icons.bluetooth_disabled,
+                              size: 32,
+                              color: Colors.white,
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    _connectionState ==
+                                            BleConnectionState.connected
+                                        ? _bleService.connectedDeviceName
+                                        : _connectionState ==
+                                                BleConnectionState.scanning
+                                            ? 'Scanning for devices...'
+                                            : 'Not connected',
+                                    style: const TextStyle(
+                                      fontSize: 22,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    _connectionState ==
+                                            BleConnectionState.connected
+                                        ? 'Receiving data in real-time'
+                                        : _connectionState ==
+                                                BleConnectionState.scanning
+                                            ? 'Looking for ESP32 devices...'
+                                            : 'Ready to scan and connect',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.white.withOpacity(0.9),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        if (_foundDeviceNames.isNotEmpty &&
+                            _connectionState != BleConnectionState.connected)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 16.0),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  _connectionState ==
-                                          BleConnectionState.connected
-                                      ? 'Connected to: ${_bleService.connectedDeviceName}'
-                                      : 'Connection Status',
+                                  'Available: ${_foundDeviceNames.length} device${_foundDeviceNames.length != 1 ? 's' : ''}',
                                   style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                    color:
-                                        _connectionState ==
-                                            BleConnectionState.connected
-                                        ? Colors.green[700]
-                                        : Colors.blue[700],
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.white.withOpacity(0.9),
                                   ),
                                 ),
-                                if (_connectionState ==
-                                    BleConnectionState.connected)
-                                  Text(
-                                    'Receiving data in real-time',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.grey[600],
-                                    ),
-                                  )
-                                else if (_foundDeviceNames.isNotEmpty)
-                                  Text(
-                                    'Found ${_foundDeviceNames.length} device(s)',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.grey[600],
-                                    ),
-                                  ),
+                                const SizedBox(height: 10),
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 4,
+                                  children: _foundDeviceNames
+                                      .map(
+                                        (name) => Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 12,
+                                            vertical: 6,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: Colors.white.withOpacity(0.2),
+                                            borderRadius:
+                                                BorderRadius.circular(12),
+                                            border: Border.all(
+                                              color: Colors.white
+                                                  .withOpacity(0.4),
+                                            ),
+                                          ),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              const Icon(
+                                                Icons.bluetooth,
+                                                size: 14,
+                                                color: Colors.white,
+                                              ),
+                                              const SizedBox(width: 6),
+                                              Text(
+                                                name,
+                                                style: const TextStyle(
+                                                  fontSize: 12,
+                                                  color: Colors.white,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      )
+                                      .toList(),
+                                ),
                               ],
                             ),
                           ),
-                        ],
-                      ),
-                      if (_foundDeviceNames.isNotEmpty &&
-                          _connectionState != BleConnectionState.connected)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 12.0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Available devices:',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                  color: Colors.grey[700],
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              Wrap(
-                                spacing: 8,
-                                runSpacing: 4,
-                                children: _foundDeviceNames
-                                    .map(
-                                      (name) => Chip(
-                                        label: Text(
-                                          name,
-                                          style: const TextStyle(fontSize: 12),
-                                        ),
-                                        avatar: const Icon(
-                                          Icons.bluetooth,
-                                          size: 16,
-                                        ),
-                                      ),
-                                    )
-                                    .toList(),
-                              ),
-                            ],
-                          ),
-                        ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
 
