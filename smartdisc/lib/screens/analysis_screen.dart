@@ -129,40 +129,20 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
   List<FlSpot> _getChartSpots() {
     if (_wurfe.isEmpty) return [];
 
-    // Use the first throw time from ALL wurfe, not just filtered ones
-    final firstTime = _getFirstThrowTime() ?? DateTime.now();
-
-    // Group by integer hour (so each integer X has a single Y value).
-    final Map<int, List<double>> grouped = {};
-    for (final wurf in _wurfe) {
-      if (wurf.erstelltAm != null) {
-        final timestamp = DateTime.parse(wurf.erstelltAm!);
-        final xInt = timestamp.difference(firstTime).inHours;
-        final yValue = _getMetricValue(wurf, _selectedMetric);
-        if (yValue != null) {
-          grouped.putIfAbsent(xInt, () => []).add(yValue);
-        }
+    // Simply plot each throw as a point (index as X, value as Y)
+    final spots = <FlSpot>[];
+    for (int i = 0; i < _wurfe.length; i++) {
+      final yValue = _getMetricValue(_wurfe[i], _selectedMetric);
+      if (yValue != null) {
+        spots.add(FlSpot(i.toDouble(), yValue));
       }
     }
-
-    final spots = grouped.entries.map((e) {
-      final x = e.key.toDouble();
-      final values = e.value;
-      final avg = values.reduce((a, b) => a + b) / values.length;
-      return FlSpot(x, avg);
-    }).toList();
-
-    spots.sort((a, b) => a.x.compareTo(b.x));
     return spots;
   }
 
   String _formatXAxisLabel(double value) {
-    // Show time in hours, or days if > 24h
-    if (value >= 24) {
-      final days = (value / 24).round();
-      return '${days}d';
-    }
-    return '${value.round()}h';
+    // Show throw number (index)
+    return 'T${(value + 1).toInt()}';
   }
 
   List<Map<String, String>> _getAvailableDiscs() {
@@ -326,7 +306,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                                 ),
                                 const SizedBox(height: 8),
                                 Text(
-                                  'X-Axis: Time (since first throw) • Y-Axis: ${_getMetricLabel(_selectedMetric)}',
+                                  'X-Axis: Throw Number • Y-Axis: ${_getMetricLabel(_selectedMetric)}',
                                   style: AppFont.caption,
                                 ),
                                 const SizedBox(height: 16),
@@ -529,30 +509,16 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
   }
 
   double _getXAxisInterval() {
-    // Always show in 1-day steps (24 hours)
-    return 24.0;
+    // Show every N throws based on total count
+    if (_wurfe.length <= 10) return 1.0;
+    if (_wurfe.length <= 20) return 2.0;
+    if (_wurfe.length <= 50) return 5.0;
+    return 10.0;
   }
 
   double _getMaxX() {
     if (_wurfe.isEmpty) return 1.0;
-    
-    // Use first time from all wurfe for consistent scaling
-    final firstTime = _getFirstThrowTime() ?? DateTime.now();
-    
-    // Find the latest time from filtered wurfe
-    DateTime? lastTime;
-    for (final wurf in _wurfe) {
-      if (wurf.erstelltAm != null) {
-        final time = DateTime.parse(wurf.erstelltAm!);
-        if (lastTime == null || time.isAfter(lastTime)) {
-          lastTime = time;
-        }
-      }
-    }
-    
-    if (lastTime == null) return 1.0;
-    final diff = lastTime.difference(firstTime).inHours.toDouble();
-    return diff > 0 ? diff : 1.0;
+    return (_wurfe.length - 1).toDouble();
   }
 
   double _getMinY() {

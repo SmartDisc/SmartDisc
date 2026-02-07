@@ -1,6 +1,5 @@
 // lib/services/api_service.dart
 import 'dart:convert';
-import 'dart:math';
 import 'package:http/http.dart' as http;
 import '../env.dart';
 import '../models/wurf.dart';
@@ -29,77 +28,14 @@ class ApiService {
   // ---- READ ----
   Future<List<Wurf>> getWuerfe({int limit = 20, String? scheibeId}) async {
     final q = <String, dynamic>{'limit': limit};
-    if (scheibeId != null) q['scheibe_id'] = scheibeId; // <-- add filter
-    try {
-      final res = await _client.get(_u('/wurfe', q));
-      if (res.statusCode != 200) {
-        // fallback to dummy data
-        return await _generateDummyWuerfe(limit, scheibeId);
-      }
-      final body = jsonDecode(res.body) as Map<String, dynamic>;
-      final items = (body['items'] as List).cast<Map<String, dynamic>>();
-      final list = items.map(Wurf.fromJson).toList();
-      if (list.isEmpty) return await _generateDummyWuerfe(limit, scheibeId);
-      return list;
-    } catch (e) {
-      // network or parsing error — return dummy data so UI can show samples
-      return await _generateDummyWuerfe(limit, scheibeId);
+    if (scheibeId != null) q['scheibe_id'] = scheibeId;
+    final res = await _client.get(_u('/wurfe', q));
+    if (res.statusCode != 200) {
+      throw Exception('getWuerfe failed: ${res.statusCode}');
     }
-  }
-
-  Future<List<Wurf>> _generateDummyWuerfe(
-    int limit,
-    String? scheibeId, [
-    List<String>? availableDiscIds,
-  ]) async {
-    final rnd = Random();
-    final now = DateTime.now().toUtc();
-    final cnt = limit.clamp(1, 20);
-
-    // Try to get available disc IDs from backend if not provided
-    List<String>? discIds = availableDiscIds;
-    if (discIds == null) {
-      try {
-        final discs = await getDiscs();
-        discIds = discs.map((d) => (d['id'] as String?) ?? '').where((id) => id.isNotEmpty).toList();
-      } catch (_) {
-        // If fetching fails, discIds will remain null and we'll use fallback
-      }
-    }
-
-    // prepare a small pool of discs; prefer backend disc IDs if available
-    final discPool = scheibeId != null
-        ? [scheibeId]
-        : (discIds != null && discIds.isNotEmpty)
-            ? discIds
-            : List.generate(
-                10,
-                (j) => 'DISC-${(j + 1).toString().padLeft(2, '0')}',
-              );
-
-    return List.generate(cnt, (i) {
-      // spread timestamps: most recent items within minutes, others spread across days
-      final ageSeconds = (i * (20 + rnd.nextInt(300))) + (rnd.nextInt(60));
-      final extraDays = rnd.nextInt(8); // 0..7 days ago
-      final ms = now.subtract(Duration(seconds: ageSeconds, days: extraDays));
-
-      final id =
-          'T${now.millisecondsSinceEpoch}_${i}_${rnd.nextInt(9000) + 1000}';
-      final disc = discPool[i % discPool.length];
-
-      return Wurf(
-        id: id,
-        scheibeId: disc,
-        rotation: double.parse(
-          (rnd.nextDouble() * 12 + 0.3).toStringAsFixed(2),
-        ),
-        hoehe: double.parse((rnd.nextDouble() * 7 + 0.2).toStringAsFixed(2)),
-        accelerationMax: double.parse(
-          (rnd.nextDouble() * 15 + 5).toStringAsFixed(2),
-        ),
-        erstelltAm: ms.toIso8601String(),
-      );
-    });
+    final body = jsonDecode(res.body) as Map<String, dynamic>;
+    final items = (body['items'] as List).cast<Map<String, dynamic>>();
+    return items.map(Wurf.fromJson).toList();
   }
 
   Future<Map<String, dynamic>> getSummary() async {

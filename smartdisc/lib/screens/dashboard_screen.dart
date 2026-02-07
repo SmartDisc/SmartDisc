@@ -21,8 +21,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   // DiscService-backed selectable discs
   final _discSvc = DiscService.instance();
-  List<String> discs = List.generate(10, (i) => 'DISC-${(i + 1).toString().padLeft(2, '0')}');
-  String selectedDisc = 'DISC-01';
+  List<String> discs = [];
+  String selectedDisc = '';
   late Future<List<Wurf>> _wurfeF;
   bool _localeReady = false;
   VoidCallback? _discsListener;
@@ -39,21 +39,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Future<void> _initDiscs() async {
     await _discSvc.init();
-    // populate local discs list from stored data, fallback to generated if empty
+    // populate local discs list from stored data
     final stored = _discSvc.discs.value.map((m) => (m['name'] ?? '').toString()).where((s) => s.isNotEmpty).toList();
-    if (stored.isNotEmpty) {
-      setState(() {
-        discs = stored;
-        if (!discs.contains(selectedDisc)) selectedDisc = discs.first;
-      });
-    }
+    setState(() {
+      discs = stored;
+      if (discs.isNotEmpty && !discs.contains(selectedDisc)) {
+        selectedDisc = discs.first;
+      }
+    });
     // Listen for changes (e.g., when user edits discs in Discs screen)
     _discsListener = () {
       if (!mounted) return;
       final vals = _discSvc.discs.value.map((m) => (m['name'] ?? '').toString()).where((s) => s.isNotEmpty).toList();
       setState(() {
-        discs = vals.isNotEmpty ? vals : List.generate(10, (i) => 'DISC-${(i + 1).toString().padLeft(2, '0')}');
-        if (!discs.contains(selectedDisc)) selectedDisc = discs.isNotEmpty ? discs.first : 'DISC-01';
+        discs = vals;
+        if (discs.isEmpty || !discs.contains(selectedDisc)) {
+          selectedDisc = discs.isNotEmpty ? discs.first : '';
+        }
       });
       _reload();
     };
