@@ -191,33 +191,59 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final screenHeight = MediaQuery.of(context).size.height;
+    final chartHeight = (screenHeight * 0.4).clamp(250.0, 400.0);
+    
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: SafeArea(
-        child: Column(
-          children: [
-            // Disc and Metric Dropdowns in body instead of AppBar
-            Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: Row(
-                children: [
-                  Expanded(
+      appBar: AppBar(
+        backgroundColor: AppColors.surface,
+        elevation: 1,
+        title: const Text('Analysis', style: AppFont.headline),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(60),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Row(
+              children: [
+                // Disc Filter
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AppColors.background,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: AppColors.border),
+                    ),
                     child: DropdownButton<String?>(
                       value: _selectedDisc,
-                      hint: const Text('Disc', style: AppFont.body),
+                      hint: Row(
+                        children: const [
+                          Icon(Icons.filter_alt_outlined, size: 18, color: AppColors.textMuted),
+                          SizedBox(width: 6),
+                          Text('All Discs', style: TextStyle(fontSize: 14, color: AppColors.textPrimary)),
+                        ],
+                      ),
+                      isExpanded: true,
                       underline: const SizedBox(),
-                      icon: const Icon(Icons.arrow_drop_down, color: AppColors.primary),
+                      icon: const Icon(Icons.arrow_drop_down, size: 20, color: AppColors.primary),
                       items: [
-                        const DropdownMenuItem<String?>(
+                        DropdownMenuItem<String?>(
                           value: null,
-                          child: Text('All', style: AppFont.body),
+                          child: Row(
+                            children: const [
+                              Icon(Icons.all_inclusive, size: 18, color: AppColors.primary),
+                              SizedBox(width: 8),
+                              Text('All Discs', style: TextStyle(fontSize: 14)),
+                            ],
+                          ),
                         ),
                         ..._getAvailableDiscs().map((discInfo) {
                           final discId = discInfo['id'] ?? '';
                           final discName = discInfo['name'] ?? discId;
                           return DropdownMenuItem<String?>(
                             value: discId,
-                            child: Text(discName, style: AppFont.body),
+                            child: Text(discName, style: const TextStyle(fontSize: 14)),
                           );
                         }),
                       ],
@@ -229,18 +255,46 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                       },
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  Expanded(
+                ),
+                const SizedBox(width: 12),
+                // Metric Filter
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AppColors.background,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: AppColors.border),
+                    ),
                     child: DropdownButton<YAxisMetric>(
                       value: _selectedMetric,
+                      isExpanded: true,
                       underline: const SizedBox(),
-                      icon: const Icon(Icons.arrow_drop_down, color: AppColors.primary),
+                      icon: const Icon(Icons.arrow_drop_down, size: 20, color: AppColors.primary),
                       items: YAxisMetric.values.map((metric) {
+                        IconData icon;
+                        switch (metric) {
+                          case YAxisMetric.rotation:
+                            icon = Icons.rotate_right;
+                            break;
+                          case YAxisMetric.height:
+                            icon = Icons.height;
+                            break;
+                          case YAxisMetric.acceleration:
+                            icon = Icons.speed;
+                            break;
+                        }
                         return DropdownMenuItem<YAxisMetric>(
                           value: metric,
-                          child: Text(
-                            _getMetricDisplayName(metric),
-                            style: AppFont.body,
+                          child: Row(
+                            children: [
+                              Icon(icon, size: 18, color: AppColors.primary),
+                              const SizedBox(width: 8),
+                              Text(
+                                _getMetricDisplayName(metric),
+                                style: const TextStyle(fontSize: 14),
+                              ),
+                            ],
                           ),
                         );
                       }).toList(),
@@ -253,9 +307,15 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                       },
                     ),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
+          ),
+        ),
+      ),
+      body: SafeArea(
+        child: Column(
+          children: [
             Expanded(
               child: _isLoading
                   ? const Center(child: CircularProgressIndicator())
@@ -290,26 +350,27 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                       children: [
                         // Chart Card
                         Card(
-                          elevation: 2,
+                          elevation: 3,
+                          margin: EdgeInsets.zero,
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(16),
                           ),
                           child: Container(
                             padding: const EdgeInsets.all(16),
-                            height: 400,
+                            height: chartHeight,
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(
-                                  'Trend over Time',
-                                  style: AppFont.subheadline,
+                                Padding(
+                                  padding: const EdgeInsets.only(left: 4, bottom: 8),
+                                  child: Text(
+                                    '${_wurfe.length} throws • ${_getMetricLabel(_selectedMetric)}',
+                                    style: AppFont.caption.copyWith(
+                                      color: AppColors.textMuted,
+                                      fontSize: 12,
+                                    ),
+                                  ),
                                 ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  'X-Axis: Throw Number • Y-Axis: ${_getMetricLabel(_selectedMetric)}',
-                                  style: AppFont.caption,
-                                ),
-                                const SizedBox(height: 16),
                                 Expanded(
                                   child: Builder(
                                     builder: (context) {
@@ -340,93 +401,151 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                                           ),
                                         );
                                       }
-                                      return LineChart(
-                                        LineChartData(
-                                      gridData: FlGridData(
-                                        show: true,
-                                        drawVerticalLine: false,
-                                        horizontalInterval: _getYAxisInterval(),
-                                        getDrawingHorizontalLine: (value) {
-                                          return FlLine(
-                                            color: AppColors.border,
-                                            strokeWidth: 1,
-                                          );
-                                        },
-                                      ),
-                                      titlesData: FlTitlesData(
-                                        show: true,
-                                        rightTitles: const AxisTitles(
-                                          sideTitles: SideTitles(showTitles: false),
-                                        ),
-                                        topTitles: const AxisTitles(
-                                          sideTitles: SideTitles(showTitles: false),
-                                        ),
-                                        bottomTitles: AxisTitles(
-                                          sideTitles: SideTitles(
-                                            showTitles: true,
-                                            reservedSize: 30,
-                                            interval: _getXAxisInterval(),
-                                            getTitlesWidget: (value, meta) {
-                                              return Padding(
-                                                padding: const EdgeInsets.only(top: 8.0),
-                                                child: Text(
-                                                  _formatXAxisLabel(value),
-                                                  style: AppFont.caption,
+                                      
+                                      // Calculate chart width based on data points
+                                      // Show max 30 throws in viewport, ~24px per throw
+                                      final double pointWidth = 24.0;
+                                      final double minVisiblePoints = 30.0;
+                                      final double chartWidth = (_wurfe.length * pointWidth).clamp(
+                                        MediaQuery.of(context).size.width - 120, // Min width (fill available space)
+                                        _wurfe.length * pointWidth, // Max width (scrollable)
+                                      );
+                                      
+                                      return SingleChildScrollView(
+                                        scrollDirection: Axis.horizontal,
+                                        child: Container(
+                                          width: chartWidth,
+                                          padding: const EdgeInsets.only(right: 12, top: 8),
+                                          child: LineChart(
+                                            LineChartData(
+                                              gridData: FlGridData(
+                                                show: true,
+                                                drawVerticalLine: true,
+                                                horizontalInterval: _getYAxisInterval(),
+                                                verticalInterval: _getXAxisIntervalForScroll(),
+                                                getDrawingHorizontalLine: (value) {
+                                                  return FlLine(
+                                                    color: AppColors.border.withOpacity(0.3),
+                                                    strokeWidth: 0.8,
+                                                    dashArray: [5, 5],
+                                                  );
+                                                },
+                                                getDrawingVerticalLine: (value) {
+                                                  return FlLine(
+                                                    color: AppColors.border.withOpacity(0.2),
+                                                    strokeWidth: 0.8,
+                                                    dashArray: [5, 5],
+                                                  );
+                                                },
+                                              ),
+                                              titlesData: FlTitlesData(
+                                                show: true,
+                                                rightTitles: const AxisTitles(
+                                                  sideTitles: SideTitles(showTitles: false),
                                                 ),
-                                              );
-                                            },
+                                                topTitles: const AxisTitles(
+                                                  sideTitles: SideTitles(showTitles: false),
+                                                ),
+                                                bottomTitles: AxisTitles(
+                                                  sideTitles: SideTitles(
+                                                    showTitles: true,
+                                                    reservedSize: 32,
+                                                    interval: _getXAxisIntervalForScroll(),
+                                                    getTitlesWidget: (value, meta) {
+                                                      // Show labels at intervals
+                                                      if (value % _getXAxisIntervalForScroll() != 0) {
+                                                        return const SizedBox.shrink();
+                                                      }
+                                                      return Padding(
+                                                        padding: const EdgeInsets.only(top: 10.0),
+                                                        child: Text(
+                                                          (value + 1).toInt().toString(),
+                                                          style: AppFont.caption.copyWith(
+                                                            fontSize: 11,
+                                                            color: AppColors.textMuted,
+                                                          ),
+                                                        ),
+                                                      );
+                                                    },
+                                                  ),
+                                                ),
+                                                leftTitles: AxisTitles(
+                                                  sideTitles: SideTitles(
+                                                    showTitles: true,
+                                                    reservedSize: 48,
+                                                    interval: _getYAxisInterval(),
+                                                    getTitlesWidget: (value, meta) {
+                                                      return Padding(
+                                                        padding: const EdgeInsets.only(right: 8),
+                                                        child: Text(
+                                                          value.toStringAsFixed(1),
+                                                          style: AppFont.caption.copyWith(
+                                                            fontSize: 11,
+                                                            color: AppColors.textMuted,
+                                                          ),
+                                                          textAlign: TextAlign.right,
+                                                        ),
+                                                      );
+                                                    },
+                                                  ),
+                                                ),
+                                              ),
+                                              borderData: FlBorderData(
+                                                show: false,
+                                              ),
+                                              minX: 0,
+                                              maxX: _getMaxX().clamp(0.0, double.infinity),
+                                              minY: _getMinY(),
+                                              maxY: _getMaxY(),
+                                              lineTouchData: LineTouchData(
+                                                enabled: true,
+                                                touchTooltipData: LineTouchTooltipData(
+                                                  getTooltipColor: (_) => AppColors.textPrimary.withOpacity(0.9),
+                                                  tooltipRoundedRadius: 8,
+                                                  tooltipPadding: const EdgeInsets.symmetric(
+                                                    horizontal: 12,
+                                                    vertical: 8,
+                                                  ),
+                                                  getTooltipItems: (touchedSpots) {
+                                                    return touchedSpots.map((spot) {
+                                                      return LineTooltipItem(
+                                                        'Throw ${(spot.x + 1).toInt()}\\n${spot.y.toStringAsFixed(2)} ${_getMetricUnit(_selectedMetric)}',
+                                                        const TextStyle(
+                                                          color: Colors.white,
+                                                          fontSize: 12,
+                                                          fontWeight: FontWeight.w500,
+                                                        ),
+                                                      );
+                                                    }).toList();
+                                                  },
+                                                ),
+                                              ),
+                                              lineBarsData: [
+                                                LineChartBarData(
+                                                  spots: spots,
+                                                  isCurved: false,
+                                                  color: AppColors.primary,
+                                                  barWidth: 2.5,
+                                                  isStrokeCapRound: false,
+                                                  dotData: FlDotData(
+                                                    show: true,
+                                                    getDotPainter: (spot, percent, barData, index) {
+                                                      return FlDotCirclePainter(
+                                                        radius: 3.5,
+                                                        color: AppColors.primary,
+                                                        strokeWidth: 1.5,
+                                                        strokeColor: AppColors.surface,
+                                                      );
+                                                    },
+                                                  ),
+                                                  belowBarData: BarAreaData(
+                                                    show: false,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
                                           ),
                                         ),
-                                        leftTitles: AxisTitles(
-                                          sideTitles: SideTitles(
-                                            showTitles: true,
-                                            reservedSize: 50,
-                                            interval: _getYAxisInterval(),
-                                            getTitlesWidget: (value, meta) {
-                                              return Text(
-                                                value.toStringAsFixed(1),
-                                                style: AppFont.caption,
-                                              );
-                                            },
-                                          ),
-                                        ),
-                                      ),
-                                      borderData: FlBorderData(
-                                        show: true,
-                                        border: Border.all(
-                                          color: AppColors.border,
-                                          width: 1,
-                                        ),
-                                      ),
-                                      minX: 0,
-                                      maxX: _getMaxX().clamp(0.0, double.infinity),
-                                      minY: _getMinY(),
-                                      maxY: _getMaxY(),
-                                      lineBarsData: [
-                                        LineChartBarData(
-                                          spots: spots,
-                                          isCurved: true,
-                                          color: AppColors.primary,
-                                          barWidth: 3,
-                                          isStrokeCapRound: true,
-                                          dotData: FlDotData(
-                                            show: true,
-                                            getDotPainter: (spot, percent, barData, index) {
-                                              return FlDotCirclePainter(
-                                                radius: 4,
-                                                color: AppColors.primary,
-                                                strokeWidth: 2,
-                                                strokeColor: AppColors.surface,
-                                              );
-                                            },
-                                          ),
-                                          belowBarData: BarAreaData(
-                                            show: true,
-                                            color: AppColors.primary.withAlpha(26),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
                                       );
                                     },
                                   ),
@@ -438,38 +557,48 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                         const SizedBox(height: 16),
                         // Stats Summary
                         Card(
-                          elevation: 2,
+                          elevation: 3,
+                          margin: EdgeInsets.zero,
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(16),
                           ),
                           child: Padding(
-                            padding: const EdgeInsets.all(16),
+                            padding: const EdgeInsets.all(20),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(
-                                  'Statistics',
-                                  style: AppFont.subheadline,
-                                ),
-                                const SizedBox(height: 12),
                                 _buildStatRow(
+                                  Icons.confirmation_number_outlined,
                                   'Number of throws',
                                   _wurfe.length.toString(),
+                                  '',
                                 ),
-                                const Divider(),
+                                const SizedBox(height: 12),
+                                Divider(color: AppColors.border.withOpacity(0.5)),
+                                const SizedBox(height: 12),
                                 _buildStatRow(
-                                  'Average ${_getMetricDisplayName(_selectedMetric)}',
+                                  Icons.trending_up,
+                                  'Average',
                                   _getAverageValue().toStringAsFixed(2),
+                                  _getMetricUnit(_selectedMetric),
                                 ),
-                                const Divider(),
+                                const SizedBox(height: 12),
+                                Divider(color: AppColors.border.withOpacity(0.5)),
+                                const SizedBox(height: 12),
                                 _buildStatRow(
-                                  'Max ${_getMetricDisplayName(_selectedMetric)}',
+                                  Icons.arrow_upward,
+                                  'Maximum',
                                   _getMaxValue().toStringAsFixed(2),
+                                  _getMetricUnit(_selectedMetric),
                                 ),
-                                const Divider(),
+                                const SizedBox(height: 12),
+                                Divider(color: AppColors.border.withOpacity(0.5)),
+                                const SizedBox(height: 12),
                                 _buildStatRow(
-                                  'Min ${_getMetricDisplayName(_selectedMetric)}',
+                                  Icons.arrow_downward,
+                                  'Minimum',
                                   _getMinValue().toStringAsFixed(2),
+                                  _getMetricUnit(_selectedMetric),
                                 ),
                               ],
                             ),
@@ -486,12 +615,53 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
     );
   }
 
-  Widget _buildStatRow(String label, String value) {
+  String _getMetricUnit(YAxisMetric metric) {
+    switch (metric) {
+      case YAxisMetric.rotation:
+        return 'rps';
+      case YAxisMetric.height:
+        return 'm';
+      case YAxisMetric.acceleration:
+        return 'm/s²';
+    }
+  }
+
+  Widget _buildStatRow(IconData icon, String label, String value, String unit) {
     return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(label, style: AppFont.body),
-        Text(value, style: AppFont.statValue),
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: AppColors.primary.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(icon, size: 20, color: AppColors.primary),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            label,
+            style: AppFont.body.copyWith(fontSize: 15),
+          ),
+        ),
+        Text(
+          value,
+          style: AppFont.statValue.copyWith(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        if (unit.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(left: 4),
+            child: Text(
+              unit,
+              style: AppFont.caption.copyWith(
+                color: AppColors.textMuted,
+                fontSize: 13,
+              ),
+            ),
+          ),
       ],
     );
   }
@@ -505,14 +675,33 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
     final range = values.reduce((a, b) => a > b ? a : b) -
         values.reduce((a, b) => a < b ? a : b);
     if (range == 0) return 1.0;
-    return (range / 5).ceilToDouble();
+    
+    // Calculate a nice interval (fewer grid lines for cleaner look)
+    final rawInterval = range / 4; // 4 intervals instead of 5
+    
+    // Round to nice numbers
+    if (rawInterval >= 10) {
+      return (rawInterval / 10).ceil() * 10.0;
+    } else if (rawInterval >= 1) {
+      return rawInterval.ceil().toDouble();
+    } else {
+      return (rawInterval * 10).ceil() / 10;
+    }
   }
 
   double _getXAxisInterval() {
-    // Show every N throws based on total count
-    if (_wurfe.length <= 10) return 1.0;
-    if (_wurfe.length <= 20) return 2.0;
-    if (_wurfe.length <= 50) return 5.0;
+    // Show fewer labels for less clutter
+    if (_wurfe.length <= 5) return 1.0;
+    if (_wurfe.length <= 10) return 2.0;
+    if (_wurfe.length <= 20) return 5.0;
+    if (_wurfe.length <= 50) return 10.0;
+    return 20.0;
+  }
+
+  double _getXAxisIntervalForScroll() {
+    // For horizontal scroll, show every 5th throw for clean spacing
+    if (_wurfe.length <= 10) return 2.0;
+    if (_wurfe.length <= 30) return 5.0;
     return 10.0;
   }
 
@@ -528,9 +717,18 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
         .toList();
     if (values.isEmpty) return 0.0;
     final min = values.reduce((a, b) => a < b ? a : b);
-    final minValue = (min * 0.9).clamp(0.0, double.infinity);
-    // Ensure minY is always less than maxY
+    final max = values.reduce((a, b) => a > b ? a : b);
+    
+    // Add 15% padding below minimum for better visualization
+    final range = max - min;
+    if (range == 0) {
+      return min > 0 ? min * 0.8 : 0.0;
+    }
+    
+    final minValue = (min - range * 0.15).clamp(0.0, double.infinity);
     final maxValue = _getMaxY();
+    
+    // Ensure minY is always less than maxY
     if (minValue >= maxValue) {
       return maxValue > 0 ? maxValue * 0.9 : 0.0;
     }
@@ -545,11 +743,15 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
     if (values.isEmpty) return 10.0;
     final max = values.reduce((a, b) => a > b ? a : b);
     final min = values.reduce((a, b) => a < b ? a : b);
+    
     // If all values are the same, add padding to prevent minY == maxY
     if (max == min) {
       return max + (max == 0 ? 1.0 : max * 0.2);
     }
-    return (max * 1.1).clamp(0.0, double.infinity);
+    
+    // Add 15% padding above maximum for better visualization
+    final range = max - min;
+    return (max + range * 0.15).clamp(0.0, double.infinity);
   }
 
   double _getAverageValue() {
