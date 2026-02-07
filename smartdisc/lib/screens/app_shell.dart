@@ -22,6 +22,8 @@ class AppShell extends StatefulWidget {
 class _AppShellState extends State<AppShell> {
   late int _selectedIndex;
   late final List<Widget> _pages;
+  final GlobalKey<DashboardScreenState> _dashboardKey = GlobalKey<DashboardScreenState>();
+  final GlobalKey<AnalysisScreenState> _analysisKey = GlobalKey<AnalysisScreenState>();
   final List<String> _titles = [
     'Dashboard',
     'Analysis',
@@ -36,8 +38,8 @@ class _AppShellState extends State<AppShell> {
     super.initState();
     _selectedIndex = widget.initialIndex;
     _pages = [
-      const DashboardScreen(),
-      const AnalysisScreen(),
+      DashboardScreen(key: _dashboardKey),
+      AnalysisScreen(key: _analysisKey),
       const HistoryScreen(),
       const DiscsScreen(),
       const BleTestScreen(),
@@ -66,6 +68,18 @@ class _AppShellState extends State<AppShell> {
             },
             icon: const Icon(Icons.logout_rounded),
             label: const Text('Logout'),
+          ),
+        ];
+      case 1: // Analysis - Export
+        return [
+          IconButton(
+            onPressed: () {
+              final state = _analysisKey.currentState;
+              if (state == null) return;
+              state.openExportSheet();
+            },
+            icon: const Icon(Icons.download_rounded),
+            tooltip: 'Export',
           ),
         ];
       case 3: // Discs - Add button

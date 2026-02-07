@@ -1,5 +1,10 @@
 import 'package:flutter/material.dart';
+import 'dart:io';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:intl/intl.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:open_filex/open_filex.dart';
 import '../services/api_service.dart';
 import '../services/disc_service.dart';
 import '../models/wurf.dart';
@@ -16,10 +21,10 @@ class AnalysisScreen extends StatefulWidget {
   const AnalysisScreen({super.key});
 
   @override
-  State<AnalysisScreen> createState() => _AnalysisScreenState();
+  State<AnalysisScreen> createState() => AnalysisScreenState();
 }
 
-class _AnalysisScreenState extends State<AnalysisScreen> {
+class AnalysisScreenState extends State<AnalysisScreen> {
   final ApiService _apiService = ApiService();
   final DiscService _discService = DiscService.instance();
   List<Wurf> _wurfe = [];
@@ -126,6 +131,165 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
     return firstTime;
   }
 
+  void openExportSheet() {
+    if (!mounted) return;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) {
+        String format = 'csv';
+        bool exportAll = false;
+        bool isExporting = false;
+
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            Future<void> onExport() async {
+              if (isExporting) return;
+              setModalState(() => isExporting = true);
+              try {
+                await _exportThrows(exportAll: exportAll, format: format);
+                if (mounted) Navigator.of(context).pop();
+              } catch (_) {
+                if (!mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Export failed. Please try again.'),
+                  ),
+                );
+              } finally {
+                if (mounted) setModalState(() => isExporting = false);
+              }
+            }
+
+            return Padding(
+              padding: EdgeInsets.only(
+                left: 16,
+                right: 16,
+                top: 16,
+                bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Export', style: AppFont.headline),
+                  const SizedBox(height: 12),
+                  Text('Format', style: AppFont.subheadline),
+                  const SizedBox(height: 8),
+                  RadioListTile<String>(
+                    value: 'csv',
+                    groupValue: format,
+                    onChanged: (v) => setModalState(() => format = v ?? 'csv'),
+                    title: const Text('CSV'),
+                  ),
+                  RadioListTile<String>(
+                    value: 'pdf',
+                    groupValue: format,
+                    onChanged: null,
+                    title: const Text('PDF (coming soon)'),
+                  ),
+                  const SizedBox(height: 8),
+                  Text('Scope', style: AppFont.subheadline),
+                  const SizedBox(height: 8),
+                  RadioListTile<bool>(
+                    value: false,
+                    groupValue: exportAll,
+                    onChanged: (v) => setModalState(() => exportAll = v ?? false),
+                    title: const Text('Export current filters'),
+                  ),
+                  RadioListTile<bool>(
+                    value: true,
+                    groupValue: exportAll,
+                    onChanged: (v) => setModalState(() => exportAll = v ?? false),
+                    title: const Text('Export all throws'),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: isExporting
+                              ? null
+                              : () => Navigator.of(context).pop(),
+                          child: const Text('Cancel'),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: isExporting ? null : onExport,
+                          child: isExporting
+                              ? const SizedBox(
+                                  height: 18,
+                                  width: 18,
+                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                )
+                              : const Text('Export'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _exportThrows({required bool exportAll, required String format}) async {
+    if (!mounted) return;
+
+    if (!exportAll && _wurfe.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No data to export with current filters.'),
+        ),
+      );
+      return;
+    }
+
+    final bytes = await _apiService.exportThrows(
+      format: format,
+      exportAll: exportAll,
+      discId: exportAll ? null : _selectedDisc,
+    );
+
+    final dir = await getApplicationDocumentsDirectory();
+    final timestamp = DateFormat('yyyyMMdd_HHmmss').format(DateTime.now());
+    final filename = 'smartdisc_throws_$timestamp.$format';
+    final file = File('${dir.path}${Platform.pathSeparator}$filename');
+    await file.writeAsBytes(bytes, flush: true);
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        behavior: SnackBarBehavior.floating,
+        content: Row(
+          children: [
+            const Expanded(child: Text('Export saved.')),
+            TextButton(
+              onPressed: () => OpenFilex.open(file.path),
+              child: const Text('Open'),
+            ),
+            TextButton(
+              onPressed: () => Share.shareXFiles(
+                [XFile(file.path)],
+                text: 'SmartDisc export',
+              ),
+              child: const Text('Share'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   List<FlSpot> _getChartSpots() {
     if (_wurfe.isEmpty) return [];
 
@@ -199,7 +363,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
       appBar: AppBar(
         backgroundColor: AppColors.surface,
         elevation: 1,
-        title: const Text('Analysis', style: AppFont.headline),
+        title: const SizedBox.shrink(),
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(60),
           child: Container(

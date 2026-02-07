@@ -25,6 +25,41 @@ class ApiService {
     '$apiBaseUrl$path',
   ).replace(queryParameters: q?.map((k, v) => MapEntry(k, '$v')));
 
+  // ---- EXPORT ----
+  Future<List<int>> exportThrows({
+    String format = 'csv',
+    bool exportAll = false,
+    String? discId,
+    double? minHeight,
+    double? maxHeight,
+    double? minAcceleration,
+    double? maxAcceleration,
+    double? minRotation,
+    double? maxRotation,
+  }) async {
+    final headers = await _getAuthHeaders();
+    final q = <String, dynamic>{'format': format};
+
+    if (!exportAll) {
+      if (discId != null && discId.isNotEmpty) q['discId'] = discId;
+      if (minHeight != null) q['minHeight'] = minHeight;
+      if (maxHeight != null) q['maxHeight'] = maxHeight;
+      if (minAcceleration != null) q['minAcc'] = minAcceleration;
+      if (maxAcceleration != null) q['maxAcc'] = maxAcceleration;
+      if (minRotation != null) q['minRot'] = minRotation;
+      if (maxRotation != null) q['maxRot'] = maxRotation;
+    }
+
+    final res = await _client.get(
+      _u('/exports/throws', q),
+      headers: headers,
+    );
+    if (res.statusCode != 200) {
+      throw Exception('export failed: ${res.statusCode}');
+    }
+    return res.bodyBytes;
+  }
+
   // ---- READ ----
   Future<List<Wurf>> getWuerfe({int limit = 20, String? scheibeId}) async {
     final q = <String, dynamic>{'limit': limit};

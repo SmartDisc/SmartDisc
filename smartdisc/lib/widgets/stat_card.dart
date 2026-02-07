@@ -45,7 +45,7 @@ class StatCard extends StatelessWidget {
             ),
             const SizedBox(height: 10),
             Text(label, style: AppFont.statLabel),
-            const SizedBox(height: 4),
+            const SizedBox(height: 2),
             // Make the value scale down if there's not enough space instead of overflowing
               // Render value with nicer typography: show primary line large, optional second line smaller
               const SizedBox(height: 6),
@@ -61,10 +61,20 @@ class StatCard extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       // Primary value (prominent)
-                      Text(primary, style: AppFont.statValueLarge, overflow: TextOverflow.ellipsis, maxLines: 1),
+                      Text(
+                        primary,
+                        style: AppFont.statValue.copyWith(fontSize: 24),
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
+                      ),
                       if (rest.isNotEmpty) ...[
                         const SizedBox(height: 4),
-                        Text(rest, style: AppFont.subheadline, overflow: TextOverflow.ellipsis, maxLines: 2),
+                        Text(
+                          rest,
+                          style: AppFont.caption.copyWith(fontSize: 12),
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 2,
+                        ),
                       ],
                     ],
                   );
