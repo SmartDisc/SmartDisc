@@ -23,6 +23,7 @@ class _BleTestScreenState extends State<BleTestScreen> {
   final List<String> _errors = [];
   List<String> _foundDeviceNames = [];
   bool _isInitialized = false;
+  int _savedCount = 0;
 
   @override
   void initState() {
@@ -81,6 +82,13 @@ class _BleTestScreenState extends State<BleTestScreen> {
                   : d.remoteId.toString(),
             )
             .toList();
+      });
+    });
+    
+    // Listen to saved count
+    _bleService.savedCount.listen((count) {
+      setState(() {
+        _savedCount = count;
       });
     });
   }
@@ -300,6 +308,36 @@ class _BleTestScreenState extends State<BleTestScreen> {
                     ),
                   ),
                 ),
+
+                // Saved throws counter (when connected)
+                if (_connectionState == BleConnectionState.connected && _savedCount > 0)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                    child: Container(
+                      padding: const EdgeInsets.all(12.0),
+                      decoration: BoxDecoration(
+                        color: Colors.green[50],
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.green[300]!),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.cloud_done, color: Colors.green[700], size: 20),
+                          const SizedBox(width: 8),
+                          Text(
+                            '$_savedCount throw${_savedCount != 1 ? 's' : ''} saved to History',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.green[900],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                if (_connectionState == BleConnectionState.connected && _savedCount > 0)
+                  const SizedBox(height: 16),
 
                 // Control buttons
                 Padding(

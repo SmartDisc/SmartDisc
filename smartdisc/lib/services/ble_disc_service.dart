@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import '../models/ble_disc_measurement.dart';
+import 'api_service.dart';
 
 /// BLE Service for Windows Desktop
 /// Handles ESP32 connection with Windows-specific quirks:
@@ -26,11 +27,15 @@ class BleDiscService {
   
   // ==================== State ====================
   
+  final ApiService _apiService = ApiService();
   BluetoothDevice? _connectedDevice;
   StreamSubscription? _notificationSubscription;
   
   /// Buffer for incomplete messages (CRITICAL for Windows)
   String _messageBuffer = '';
+  
+  /// Track saved measurements count
+  int _savedCount = 0;
   
   /// Stream controller for found devices
   final StreamController<List<BluetoothDevice>> _foundDevicesController =
@@ -51,12 +56,17 @@ class BleDiscService {
   final StreamController<String> _errorController =
       StreamController<String>.broadcast();
   
+  /// Stream controller for saved count
+  final StreamController<int> _savedCountController =
+      StreamController<int>.broadcast();
+  
   // ==================== Public Streams ====================
   
   Stream<BleDiscMeasurement> get measurements => _measurementController.stream;
   Stream<BleConnectionState> get connectionState => _connectionStateController.stream;
   Stream<String> get errors => _errorController.stream;
   Stream<List<BluetoothDevice>> get foundDevices => _foundDevicesController.stream;
+  Stream<int> get savedCount => _savedCountController.stream;
   
   bool get isConnected => _connectedDevice != null;
   String get connectedDeviceName => _connectedDevice?.platformName ?? 'Unknown';
@@ -327,6 +337,7 @@ class BleDiscService {
       }
       
       _messageBuffer = ''; // Clear buffer
+      _savedCount = 0; // Reset counter
       
       _connectionStateController.add(BleConnectionState.disconnected);
     } catch (e) {
@@ -341,6 +352,7 @@ class BleDiscService {
     _connectionStateController.close();
     _errorController.close();
     _foundDevicesController.close();
+    _savedCountController.close();
   }
   
   // ==================== Private Methods ====================
@@ -373,7 +385,7 @@ class BleDiscService {
     }
   }
   
-  /// Parse JSON message
+  /// Parse JSON message and save to database
   void _parseMessage(String message) {
     try {
       final json = jsonDecode(message) as Map<String, dynamic>;
@@ -382,8 +394,31 @@ class BleDiscService {
       // ignore: avoid_print
       print("Received: $measurement");
       _measurementController.add(measurement);
+      
+      // Save to database (async, don't block)
+      _saveToDatabase(measurement);
     } catch (e) {
       _errorController.add("JSON parse error: $e | Raw: $message");
+    }
+  }
+  
+  /// Save measurement to database
+  Future<void> _saveToDatabase(BleDiscMeasurement measurement) async {
+    try {
+      await _apiService.createThrow(
+        scheibeId: measurement.scheibeId,
+        rotation: measurement.rotation,
+        height: measurement.hoehe,
+        accelerationMax: measurement.accelerationMax ?? 0.0,
+      );
+      
+      _savedCount++;
+      _savedCountController.add(_savedCount);
+      
+      // ignore: avoid_print
+      print("Saved to database: Throw #$_savedCount");
+    } catch (e) {
+      _errorController.add("Failed to save throw to database: $e");
     }
   }
   
