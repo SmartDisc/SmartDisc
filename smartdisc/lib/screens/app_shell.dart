@@ -10,7 +10,7 @@ import '../services/disc_service.dart';
 
 class AppShell extends StatefulWidget {
   /// initialIndex selects which tab to show
-  /// 0 = dashboard, 1 = analysis, 2 = history, 3 = discs, 4 = profile, 5 = BLE
+  /// 0 = dashboard, 1 = analysis, 2 = history, 3 = discs, 4 = BLE, 5 = profile
   const AppShell({super.key, this.initialIndex = 0});
 
   final int initialIndex;
@@ -27,8 +27,8 @@ class _AppShellState extends State<AppShell> {
     'Analysis',
     'History',
     'Discs',
-    'Profile',
     'BLE Connect',
+    'Profile',
   ];
 
   @override
@@ -40,8 +40,8 @@ class _AppShellState extends State<AppShell> {
       const AnalysisScreen(),
       const HistoryScreen(),
       const DiscsScreen(),
-      const ProfileScreen(),
       const BleTestScreen(),
+      const ProfileScreen(),
     ];
   }
 
@@ -223,12 +223,12 @@ class _AppShellState extends State<AppShell> {
             label: 'Discs',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.person_rounded),
-            label: 'Profile',
-          ),
-          BottomNavigationBarItem(
             icon: Icon(Icons.bluetooth),
             label: 'BLE',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.person_rounded),
+            label: 'Profile',
           ),
         ],
       ),
