@@ -51,6 +51,3 @@ macos/Flutter/GeneratedPluginRegistrant.swift
 windows/flutter/generated_plugins.cmake
 linux/flutter/generated_plugins.cmake
 web/plugins.js
-
-# Database files
-api-php/data/smartdisc.sqlite
