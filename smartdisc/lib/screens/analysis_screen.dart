@@ -153,11 +153,12 @@ class AnalysisScreenState extends State<AnalysisScreen> {
               try {
                 await _exportThrows(exportAll: exportAll, format: format);
                 if (mounted) Navigator.of(context).pop();
-              } catch (_) {
+              } catch (e) {
                 if (!mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Export failed. Please try again.'),
+                  SnackBar(
+                    content: Text('Export failed: $e'),
+                    duration: const Duration(seconds: 5),
                   ),
                 );
               } finally {
@@ -260,10 +261,27 @@ class AnalysisScreenState extends State<AnalysisScreen> {
       discId: exportAll ? null : _selectedDisc,
     );
 
-    final dir = await getApplicationDocumentsDirectory();
+    // Save to platform-appropriate directory
     final timestamp = DateFormat('yyyyMMdd_HHmmss').format(DateTime.now());
     final filename = 'smartdisc_throws_$timestamp.$format';
-    final file = File('${dir.path}${Platform.pathSeparator}$filename');
+    
+    // Get the appropriate directory for the platform
+    final Directory directory;
+    if (Platform.isAndroid) {
+      // On Android, use external storage or app documents directory
+      directory = await getApplicationDocumentsDirectory();
+    } else if (Platform.isWindows) {
+      // On Windows, use a fixed path
+      directory = Directory('C:/SmartDiscApp/smartdisc/exports');
+    } else {
+      // For other platforms, use documents directory
+      directory = await getApplicationDocumentsDirectory();
+    }
+    
+    final file = File('${directory.path}/$filename');
+    
+    // Create parent directory if needed
+    await file.parent.create(recursive: true);
     await file.writeAsBytes(bytes, flush: true);
 
     if (!mounted) return;
