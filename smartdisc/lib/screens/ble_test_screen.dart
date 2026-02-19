@@ -111,11 +111,75 @@ class _BleTestScreenState extends State<BleTestScreen> {
       _errors.clear();
     });
 
+    // Scan for ESP devices
     final success = await _bleService.scanAndConnect();
 
-    if (success) {
-      _showSuccess("Connected to ESP32");
+    if (success && mounted) {
+      final devices = _bleService.getFoundDevices();
+      
+      // If already connected, we're done (auto-connected to single device)
+      if (_bleService.isConnected) {
+        _showSuccess("Connected to ${_bleService.connectedDeviceName}");
+        return;
+      }
+      
+      // Multiple ESP devices found - show selection dialog
+      if (devices.length > 1) {
+        _showDeviceSelectionDialog();
+      }
     }
+  }
+  
+  Future<void> _showDeviceSelectionDialog() async {
+    final devices = _bleService.getFoundDevices();
+    
+    if (devices.isEmpty) {
+      _showError("No ESP devices found");
+      return;
+    }
+    
+    if (!mounted) return;
+    
+    await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Select ESP32 Device (${devices.length} found)'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: ListView.builder(
+            shrinkWrap: true,
+            itemCount: devices.length,
+            itemBuilder: (context, index) {
+              final device = devices[index];
+              final name = device.platformName.isNotEmpty 
+                  ? device.platformName 
+                  : 'Unknown Device';
+              final id = device.remoteId.toString();
+              
+              return ListTile(
+                leading: const Icon(Icons.bluetooth, color: Colors.blue),
+                title: Text(name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                subtitle: Text(id, style: const TextStyle(fontSize: 11)),
+                onTap: () async {
+                  Navigator.of(context).pop();
+                  // Connect to selected device
+                  final connected = await _bleService.connectToDeviceByIndex(index);
+                  if (connected) {
+                    _showSuccess("Connected to $name");
+                  }
+                },
+              );
+            },
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+        ],
+      ),
+    );
   }
 
   void _showSuccess(String message) {

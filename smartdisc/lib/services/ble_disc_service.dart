@@ -13,11 +13,11 @@ import 'api_service.dart';
 class BleDiscService {
   // ==================== Configuration ====================
   
-  /// ESP32 Service UUID - CHANGE THIS to match your ESP32
-  static const String serviceUuid = "6e400001-b5a3-f393-e0a9-e50e24dcca9e";
+  /// ESP32 Service UUID - matches your ESP32 configuration
+  static const String serviceUuid = "4fafc201-1fb5-459e-8fcc-c5c9c331914b";
   
-  /// ESP32 Characteristic UUID for notifications - CHANGE THIS to match your ESP32
-  static const String characteristicUuid = "6e400003-b5a3-f393-e0a9-e50e24dcca9e";
+  /// ESP32 Characteristic UUID for notifications (TX) - matches your ESP32 configuration
+  static const String characteristicUuid = "beb5483e-36e1-4688-b7f5-ea07361b26a8";
   
   /// Device name filter (fallback - may be empty on Windows)
   static const String deviceNameFilter = "Bodenstation-ESP32";
@@ -82,10 +82,16 @@ class BleDiscService {
         return false;
       }
       
-      // Check if Bluetooth is enabled
-      final adapterState = await FlutterBluePlus.adapterState.first;
-      if (adapterState != BluetoothAdapterState.on) {
-        _errorController.add("Bluetooth is disabled. Enable it in Windows Settings.");
+      // Request Bluetooth permissions (Android 12+ requirement)
+      try {
+        // Try to turn on Bluetooth if off (this also requests permissions)
+        if (await FlutterBluePlus.adapterState.first != BluetoothAdapterState.on) {
+          _errorController.add("Please enable Bluetooth in your device settings");
+          return false;
+        }
+      } catch (e) {
+        // Permission denied or other error
+        _errorController.add("Bluetooth permission denied. Enable in Settings.");
         return false;
       }
       
@@ -96,45 +102,45 @@ class BleDiscService {
     }
   }
   
-  /// Scan for ESP32 device
-  /// Uses service UUID filtering (critical for Windows)
-  Future<BluetoothDevice?> scanForDevice() async {
+  /// Scan for ESP32 devices only
+  /// Filters by device name since Android doesn't reliably advertise service UUIDs
+  Future<bool> scanForDevices() async {
     try {
       _connectionStateController.add(BleConnectionState.scanning);
       
       _foundDevices.clear();
-      BluetoothDevice? foundDevice;
+      final List<BluetoothDevice> allDevices = [];
       
-      // Start scanning with service UUID filter
+      // Start scanning
       final subscription = FlutterBluePlus.scanResults.listen((results) {
         for (var result in results) {
-          // Primary filter: Service UUID (Windows-safe)
-          final hasTargetService = result.advertisementData.serviceUuids
-              .any((uuid) => uuid.toString().toLowerCase() == serviceUuid.toLowerCase());
+          // Log all devices for debugging
+          // ignore: avoid_print
+          print("Scanned device: ${result.device.platformName} (${result.device.remoteId})");
+          // ignore: avoid_print
+          print("  Services: ${result.advertisementData.serviceUuids}");
           
-          // Secondary filter: Device name (ESP32 or SmartDisc)
-          final hasTargetName = result.device.platformName.isNotEmpty &&
-              (result.device.platformName.contains("ESP") || 
-               result.device.platformName.contains(deviceNameFilter));
+          // Track all devices
+          if (!allDevices.any((d) => d.remoteId == result.device.remoteId)) {
+            allDevices.add(result.device);
+          }
           
-          if (hasTargetService || hasTargetName) {
+          // Filter: only ESP devices
+          final deviceName = result.device.platformName.toLowerCase();
+          final isESP = deviceName.contains("esp") || 
+                       deviceName.contains("smartdisc") ||
+                       deviceName.contains("bodenstation");
+          
+          if (isESP && !_foundDevices.any((d) => d.remoteId == result.device.remoteId)) {
             // ignore: avoid_print
-            print("Found device: ${result.device.platformName} (${result.device.remoteId})");
-            // ignore: avoid_print
-            print("Services: ${result.advertisementData.serviceUuids}");
-            
-            // Add to found devices if not already there
-            if (!_foundDevices.any((d) => d.remoteId == result.device.remoteId)) {
-              _foundDevices.add(result.device);
-              _foundDevicesController.add(List.from(_foundDevices));
-            }
-            
-            foundDevice = result.device;
+            print("✓ ESP device found: ${result.device.platformName}");
+            _foundDevices.add(result.device);
+            _foundDevicesController.add(List.from(_foundDevices));
           }
         }
       });
       
-      // Start scan (removed service UUID filter to find all devices)
+      // Start scan (no filters - find everything, filter in code)
       await FlutterBluePlus.startScan(
         timeout: scanTimeout,
       );
@@ -144,20 +150,30 @@ class BleDiscService {
       await FlutterBluePlus.stopScan();
       await subscription.cancel();
       
-      if (foundDevice == null) {
-        _errorController.add("ESP32 not found. Ensure it's powered on and advertising.");
-        _connectionStateController.add(BleConnectionState.disconnected);
-        return null;
+      _connectionStateController.add(BleConnectionState.disconnected);
+      
+      if (_foundDevices.isEmpty) {
+        _errorController.add(
+          "No ESP32 device found.\n"
+          "Scanned ${allDevices.length} device(s).\n"
+          "Ensure ESP32 name contains 'ESP', 'SmartDisc', or 'Bodenstation'."
+        );
+        return false;
       }
       
-      // Device found successfully
-      _connectionStateController.add(BleConnectionState.disconnected);
-      return foundDevice;
+      // ignore: avoid_print
+      print("Found ${_foundDevices.length} ESP device(s)");
+      return true;
     } catch (e) {
       _errorController.add("Scan failed: $e");
       _connectionStateController.add(BleConnectionState.disconnected);
-      return null;
+      return false;
     }
+  }
+  
+  /// Get list of found devices for manual selection
+  List<BluetoothDevice> getFoundDevices() {
+    return List.from(_foundDevices);
   }
   
   /// Connect to device and enable notifications
@@ -264,12 +280,11 @@ class BleDiscService {
       }
       
       // Enable notifications (CRITICAL)
-      // On Windows, sometimes notifications need to be enabled with a small delay
       try {
         // Enable notifications
         await notifyChar.setNotifyValue(true);
         
-        // Wait a bit for Windows to process the notification enable
+        // Wait a bit to ensure notifications are enabled
         await Future.delayed(const Duration(milliseconds: 300));
         
         // ignore: avoid_print
@@ -278,12 +293,19 @@ class BleDiscService {
         throw Exception("Failed to enable notifications: $e");
       }
       
-      // Subscribe to notifications with buffering
-      // Use lastValueStream which is the standard stream for notifications
-      _notificationSubscription = notifyChar.lastValueStream.listen(
-        _handleNotification,
+      // Subscribe to notifications - use onValueReceived for flutter_blue_plus
+      // ignore: avoid_print
+      print("Setting up notification listener...");
+      _notificationSubscription = notifyChar.onValueReceived.listen(
+        (value) {
+          // ignore: avoid_print
+          print("Raw notification received: ${value.length} bytes");
+          _handleNotification(value);
+        },
         onError: (error) {
           _errorController.add("Notification error: $error");
+          // ignore: avoid_print
+          print("Notification stream error: $error");
         },
       );
       
@@ -307,22 +329,32 @@ class BleDiscService {
     }
   }
   
-  /// Scan and connect in one step
+  /// Scan for ESP devices and auto-connect if only one found
   Future<bool> scanAndConnect() async {
-    final device = await scanForDevice();
-    if (device == null) {
-      // Error already added by scanForDevice
-      return false;
+    final success = await scanForDevices();
+    if (!success) return false;
+    
+    // Auto-connect if only one ESP device found
+    if (_foundDevices.length == 1) {
+      // ignore: avoid_print
+      print("Auto-connecting to ${_foundDevices[0].platformName}");
+      return await connectToDevice(_foundDevices[0]);
     }
     
-    // Device found, now try to connect
-    final connected = await connectToDevice(device);
-    if (!connected) {
-      // Error already added by connectToDevice
-      return false;
-    }
-    
+    // Multiple devices found - user needs to select
+    // Return true to indicate scan succeeded, but connection needs manual selection
     return true;
+  }
+  
+  /// Connect to a specific device by index
+  Future<bool> connectToDeviceByIndex(int index) async {
+    if (index < 0 || index >= _foundDevices.length) {
+      _errorController.add("Invalid device index");
+      return false;
+    }
+    
+    final device = _foundDevices[index];
+    return await connectToDevice(device);
   }
   
   /// Disconnect from device
@@ -358,17 +390,23 @@ class BleDiscService {
   // ==================== Private Methods ====================
   
   /// Handle incoming notification with newline-based framing
-  /// CRITICAL: Windows can fragment notifications
+  /// CRITICAL: Windows/Android can fragment notifications
   void _handleNotification(List<int> value) {
     try {
       // Decode bytes to UTF-8 text
       final textChunk = utf8.decode(value);
+      
+      // ignore: avoid_print
+      print("Decoded text: '$textChunk'");
       
       // Append to buffer
       _messageBuffer += textChunk;
       
       // Process complete messages (split by newline)
       final lines = _messageBuffer.split('\n');
+      
+      // ignore: avoid_print
+      print("Buffer has ${lines.length} lines, buffer='$_messageBuffer'");
       
       // Last element might be incomplete, keep it in buffer
       _messageBuffer = lines.last;
@@ -377,28 +415,38 @@ class BleDiscService {
       for (int i = 0; i < lines.length - 1; i++) {
         final line = lines[i].trim();
         if (line.isNotEmpty) {
+          // ignore: avoid_print
+          print("Processing line: '$line'");
           _parseMessage(line);
         }
       }
     } catch (e) {
       _errorController.add("Notification decode error: $e");
+      // ignore: avoid_print
+      print("Decode error: $e");
     }
   }
   
   /// Parse JSON message and save to database
   void _parseMessage(String message) {
     try {
+      // ignore: avoid_print
+      print("Attempting to parse JSON: $message");
+      
       final json = jsonDecode(message) as Map<String, dynamic>;
       final measurement = BleDiscMeasurement.fromJson(json);
       
       // ignore: avoid_print
-      print("Received: $measurement");
+      print("✓ Parsed successfully: $measurement");
       _measurementController.add(measurement);
       
       // Save to database (async, don't block)
       _saveToDatabase(measurement);
     } catch (e) {
-      _errorController.add("JSON parse error: $e | Raw: $message");
+      final errorMsg = "JSON parse error: $e | Raw: $message";
+      _errorController.add(errorMsg);
+      // ignore: avoid_print
+      print(errorMsg);
     }
   }
   
