@@ -62,9 +62,10 @@ class ApiService {
 
   // ---- READ ----
   Future<List<Wurf>> getWuerfe({int limit = 20, String? scheibeId}) async {
+    final headers = await _getAuthHeaders();
     final q = <String, dynamic>{'limit': limit};
     if (scheibeId != null) q['scheibe_id'] = scheibeId;
-    final res = await _client.get(_u('/wurfe', q));
+    final res = await _client.get(_u('/wurfe', q), headers: headers);
     if (res.statusCode != 200) {
       throw Exception('getWuerfe failed: ${res.statusCode}');
     }
@@ -83,7 +84,8 @@ class ApiService {
 
   /// Fetch all active discs from the backend
   Future<List<Map<String, dynamic>>> getDiscs() async {
-    final res = await _client.get(_u('/scheiben'));
+    final headers = await _getAuthHeaders();
+    final res = await _client.get(_u('/scheiben'), headers: headers);
     if (res.statusCode != 200) {
       throw Exception('getDiscs failed: ${res.statusCode}');
     }
@@ -138,6 +140,7 @@ class ApiService {
     String? firmwareVersion,
     String? kalibrierungsdatum,
   }) async {
+    final headers = await _getAuthHeaders();
     final payload = {
       'id': id,
       if (name != null) 'name': name,
@@ -148,7 +151,7 @@ class ApiService {
     };
     final res = await _client.post(
       _u('/scheiben'),
-      headers: {'Content-Type': 'application/json'},
+      headers: headers,
       body: jsonEncode(payload),
     );
     if (res.statusCode != 201) {
@@ -162,7 +165,8 @@ class ApiService {
 
   /// Delete (deactivate) a disc in the backend
   Future<void> deleteDisc(String id) async {
-    final res = await _client.delete(_u('/scheiben/$id'));
+    final headers = await _getAuthHeaders();
+    final res = await _client.delete(_u('/scheiben/$id'), headers: headers);
     if (res.statusCode != 200) {
       final errorBody = jsonDecode(res.body) as Map<String, dynamic>;
       final errorMsg = errorBody['error']?['message'] ?? 'Unknown error';

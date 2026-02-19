@@ -5,6 +5,7 @@ import 'history_screen.dart';
 import 'profile_screen.dart';
 import 'discs_screen.dart';
 import 'ble_test_screen.dart';
+import 'disc_assignments_screen.dart';
 import '../services/auth_service.dart';
 import '../services/disc_service.dart';
 
@@ -21,30 +22,66 @@ class AppShell extends StatefulWidget {
 
 class _AppShellState extends State<AppShell> {
   late int _selectedIndex;
-  late final List<Widget> _pages;
+  late List<Widget> _pages;
+  String? _userRole;
   final GlobalKey<DashboardScreenState> _dashboardKey = GlobalKey<DashboardScreenState>();
   final GlobalKey<AnalysisScreenState> _analysisKey = GlobalKey<AnalysisScreenState>();
-  final List<String> _titles = [
-    'Dashboard',
-    'Analysis',
-    'History',
-    'Discs',
-    'BLE Connect',
-    'Profile',
-  ];
+  
+  List<String> get _titles {
+    if (_userRole == 'trainer') {
+      return [
+        'Dashboard',
+        'Analysis',
+        'History',
+        'Discs',
+        'Assignments',
+        'BLE Connect',
+        'Profile',
+      ];
+    }
+    return [
+      'Dashboard',
+      'Analysis',
+      'History',
+      'Discs',
+      'BLE Connect',
+      'Profile',
+    ];
+  }
 
   @override
   void initState() {
     super.initState();
     _selectedIndex = widget.initialIndex;
-    _pages = [
-      DashboardScreen(key: _dashboardKey),
-      AnalysisScreen(key: _analysisKey),
-      const HistoryScreen(),
-      const DiscsScreen(),
-      const BleTestScreen(),
-      const ProfileScreen(),
-    ];
+    _loadUserRole();
+  }
+
+  Future<void> _loadUserRole() async {
+    final auth = AuthService();
+    final role = await auth.currentUserRole();
+    setState(() {
+      _userRole = role;
+      if (role == 'trainer') {
+        _pages = [
+          DashboardScreen(key: _dashboardKey),
+          AnalysisScreen(key: _analysisKey),
+          const HistoryScreen(),
+          const DiscsScreen(),
+          const DiscAssignmentsScreen(),
+          const BleTestScreen(),
+          const ProfileScreen(),
+        ];
+      } else {
+        _pages = [
+          DashboardScreen(key: _dashboardKey),
+          AnalysisScreen(key: _analysisKey),
+          const HistoryScreen(),
+          const DiscsScreen(),
+          const BleTestScreen(),
+          const ProfileScreen(),
+        ];
+      }
+    });
   }
 
   void _onItemTapped(int idx) {
@@ -206,8 +243,75 @@ class _AppShellState extends State<AppShell> {
     }
   }
 
+  List<BottomNavigationBarItem> _buildNavItems() {
+    if (_userRole == 'trainer') {
+      return const [
+        BottomNavigationBarItem(
+          icon: Icon(Icons.dashboard),
+          label: 'Dashboard',
+        ),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.analytics),
+          label: 'Analysis',
+        ),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.history_rounded),
+          label: 'History',
+        ),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.storage_rounded),
+          label: 'Discs',
+        ),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.assignment),
+          label: 'Assign',
+        ),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.bluetooth),
+          label: 'BLE',
+        ),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.person_rounded),
+          label: 'Profile',
+        ),
+      ];
+    }
+    return const [
+      BottomNavigationBarItem(
+        icon: Icon(Icons.dashboard),
+        label: 'Dashboard',
+      ),
+      BottomNavigationBarItem(
+        icon: Icon(Icons.analytics),
+        label: 'Analysis',
+      ),
+      BottomNavigationBarItem(
+        icon: Icon(Icons.history_rounded),
+        label: 'History',
+      ),
+      BottomNavigationBarItem(
+        icon: Icon(Icons.storage_rounded),
+        label: 'Discs',
+      ),
+      BottomNavigationBarItem(
+        icon: Icon(Icons.bluetooth),
+        label: 'BLE',
+      ),
+      BottomNavigationBarItem(
+        icon: Icon(Icons.person_rounded),
+        label: 'Profile',
+      ),
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
+    if (_userRole == null) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: Text(_titles[_selectedIndex]),
@@ -219,32 +323,7 @@ class _AppShellState extends State<AppShell> {
         currentIndex: _selectedIndex,
         onTap: _onItemTapped,
         type: BottomNavigationBarType.fixed,
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.dashboard),
-            label: 'Dashboard',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.analytics),
-            label: 'Analysis',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.history_rounded),
-            label: 'History',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.storage_rounded),
-            label: 'Discs',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.bluetooth),
-            label: 'BLE',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person_rounded),
-            label: 'Profile',
-          ),
-        ],
+        items: _buildNavItems(),
       ),
     );
   }
