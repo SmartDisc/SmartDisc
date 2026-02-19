@@ -4,35 +4,13 @@
 // List throws (accept both German and English/legacy paths)
 $wurfeListPaths = ["$prefix/wurfe", '/api-php/wurfe', '/api-php/throws'];
 if (in_array($path, $wurfeListPaths, true) && $method === 'GET') {
-  // Check authentication and role
-  $token = require_auth();
-  $user = get_user_by_token($token);
-  if (!$user) {
-    json_response(['error' => ['code' => 'UNAUTHORIZED', 'message' => 'Ungültiger Token']], 401);
-  }
-
   $limit = isset($_GET['limit']) ? max(1, min(500, intval($_GET['limit']))) : 100;
   $where = ['geloescht = 0'];
   $params = [];
 
-  // For players, filter by assigned discs only
-  if (($user['role'] ?? null) === 'player') {
-    $where[] = "scheibe_id IN (SELECT disc_id FROM disc_assignments WHERE player_id = :current_player_id)";
-    $params[':current_player_id'] = $user['id'];
-  }
-
   if (!empty($_GET['scheibe_id'])) {
     $where[] = "scheibe_id = :scheibe_id";
     $params[':scheibe_id'] = $_GET['scheibe_id'];
-    
-    // For players, verify they have access to this disc
-    if (($user['role'] ?? null) === 'player') {
-      $checkStmt = $pdo->prepare("SELECT id FROM disc_assignments WHERE disc_id = :disc_id AND player_id = :player_id");
-      $checkStmt->execute([':disc_id' => $_GET['scheibe_id'], ':player_id' => $user['id']]);
-      if (!$checkStmt->fetch()) {
-        json_response(['error' => ['code' => 'FORBIDDEN', 'message' => 'Keine Berechtigung für diese Disc']], 403);
-      }
-    }
   }
   if (!empty($_GET['player_id'])) {
     $where[] = "player_id = :player_id";

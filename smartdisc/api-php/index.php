@@ -18,6 +18,5 @@ require_once __DIR__ . '/routes/revisionen.php';
 require_once __DIR__ . '/routes/export.php';
 require_once __DIR__ . '/routes/scheiben.php';
 require_once __DIR__ . '/routes/admin.php';
-require_once __DIR__ . '/routes/assignments.php';
 
 json_response(['error' => ['code' => 'NOT_FOUND', 'message' => 'Pfad nicht gefunden']], 404);

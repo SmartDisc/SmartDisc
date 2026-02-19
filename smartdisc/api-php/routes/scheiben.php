@@ -2,34 +2,7 @@
 
 // GET /api/scheiben - Liste aller Messsysteme/Scheiben
 if ($path === "$prefix/scheiben" && $method === 'GET') {
-  // Check authentication
-  $token = require_auth();
-  $user = get_user_by_token($token);
-  if (!$user) {
-    json_response(['error' => ['code' => 'UNAUTHORIZED', 'message' => 'Ungültiger Token']], 401);
-  }
-
-  // For players, only return assigned discs
-  if (($user['role'] ?? null) === 'player') {
-    $stmt = $pdo->prepare("
-      SELECT 
-        s.id, 
-        s.name, 
-        s.modell, 
-        s.seriennummer, 
-        s.firmware_version, 
-        s.kalibrierungsdatum, 
-        s.erstellt_am 
-      FROM scheiben s
-      INNER JOIN disc_assignments da ON da.disc_id = s.id
-      WHERE s.aktiv = 1 AND da.player_id = :player_id
-      ORDER BY s.id
-    ");
-    $stmt->execute([':player_id' => $user['id']]);
-  } else {
-    // Trainers see all discs
-    $stmt = $pdo->query("SELECT id, name, modell, seriennummer, firmware_version, kalibrierungsdatum, erstellt_am FROM scheiben WHERE aktiv = 1 ORDER BY erstellt_am DESC");
-  }
+  $stmt = $pdo->query("SELECT id, name, modell, seriennummer, firmware_version, kalibrierungsdatum, erstellt_am FROM scheiben WHERE aktiv = 1 ORDER BY erstellt_am DESC");
   json_response(['items' => $stmt->fetchAll()]);
 }
 
