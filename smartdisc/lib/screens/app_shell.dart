@@ -153,19 +153,6 @@ class _AppShellState extends State<AppShell> {
 
   List<Widget>? _getAppBarActions() {
     switch (_selectedIndex) {
-      case 0: // Dashboard - Logout button
-        return [
-          TextButton.icon(
-            onPressed: () async {
-              final auth = AuthService();
-              await auth.logout();
-              if (!mounted) return;
-              Navigator.of(context).pushReplacementNamed('/auth');
-            },
-            icon: const Icon(Icons.logout_rounded),
-            label: const Text('Logout'),
-          ),
-        ];
       case 1: // Analysis - Export
         return [
           IconButton(
@@ -312,6 +299,7 @@ class _AppShellState extends State<AppShell> {
 
     return Scaffold(
       appBar: AppBar(
+        automaticallyImplyLeading: false,
         title: Text(_titles[_selectedIndex]),
         actions: _getAppBarActions(),
       ),

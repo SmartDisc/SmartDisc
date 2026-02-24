@@ -379,6 +379,7 @@ class AnalysisScreenState extends State<AnalysisScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
+        automaticallyImplyLeading: false,
         backgroundColor: AppColors.surface,
         elevation: 1,
         title: const SizedBox.shrink(),

@@ -81,6 +81,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
           subtitle: Text(_formatRole(data.role)),
           leading: const Icon(Icons.badge_outlined),
         ),
+        const SizedBox(height: 32),
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton.icon(
+            onPressed: () async {
+              final auth = AuthService();
+              await auth.logout();
+              if (!mounted) return;
+              Navigator.of(context).pushReplacementNamed('/auth');
+            },
+            icon: const Icon(Icons.logout_rounded),
+            label: const Text('Logout'),
+            style: ElevatedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+            ),
+          ),
+        ),
       ],
     );
   }
