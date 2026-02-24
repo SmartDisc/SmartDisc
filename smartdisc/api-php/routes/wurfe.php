@@ -25,6 +25,17 @@ if (in_array($path, $wurfeListPaths, true) && $method === 'GET') {
     $params[':to'] = $_GET['to'];
   }
 
+  // Spieler sehen nur Würfe von Discs, die ihnen zugeordnet sind
+  $user = null;
+  $token = get_bearer_token();
+  if ($token) {
+    $user = get_user_by_token($token);
+  }
+  if ($user && ($user['role'] ?? null) === 'player') {
+    $where[] = "EXISTS (SELECT 1 FROM disc_assignments da WHERE da.disc_id = wurfe.scheibe_id AND da.player_id = :current_player_id)";
+    $params[':current_player_id'] = $user['id'];
+  }
+
   $sql = "SELECT id, scheibe_id, player_id, rotation, hoehe, acceleration_max, erstellt_am FROM wurfe WHERE " . implode(" AND ", $where) . " ORDER BY erstellt_am DESC LIMIT :limit";
   $stmt = $pdo->prepare($sql);
   foreach ($params as $k => $v) {

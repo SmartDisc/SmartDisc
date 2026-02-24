@@ -5,6 +5,7 @@ import 'screens/app_shell.dart';
 import 'screens/auth_start_screen.dart';
 import 'screens/register_screen.dart';
 import 'screens/throw_list_example.dart';
+import 'screens/disc_assignments_screen.dart';
 import 'services/auth_service.dart';
 import 'styles/app.theme.dart';
 
@@ -41,6 +42,7 @@ class MyApp extends StatelessWidget {
         '/ble': (context) => const AppShell(initialIndex: 4),
         '/profile': (context) => const AppShell(initialIndex: 5),
         '/throws': (context) => const ThrowListExample(),
+        '/trainer/assignments': (context) => const DiscAssignmentsScreen(),
       },
       home: const _AuthGate(),
     );

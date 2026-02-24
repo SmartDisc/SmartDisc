@@ -80,6 +80,19 @@ CREATE TABLE IF NOT EXISTS auth_tokens (
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
+-- Table for disc assignments (trainer assigns discs to players)
+CREATE TABLE IF NOT EXISTS disc_assignments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    disc_id TEXT NOT NULL,
+    player_id TEXT NOT NULL,
+    assigned_by TEXT,
+    assigned_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+    UNIQUE(disc_id, player_id),
+    FOREIGN KEY (disc_id) REFERENCES scheiben(id) ON DELETE CASCADE,
+    FOREIGN KEY (player_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (assigned_by) REFERENCES users(id) ON DELETE SET NULL
+);
+
 -- Indexes for better performance
 CREATE INDEX IF NOT EXISTS idx_wurfe_scheibe_id ON wurfe(scheibe_id);
 CREATE INDEX IF NOT EXISTS idx_wurfe_erstellt_am ON wurfe(erstellt_am);
@@ -91,6 +104,8 @@ CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
 CREATE INDEX IF NOT EXISTS idx_auth_tokens_token ON auth_tokens(token);
 CREATE INDEX IF NOT EXISTS idx_auth_tokens_user_id ON auth_tokens(user_id);
+CREATE INDEX IF NOT EXISTS idx_disc_assignments_player_id ON disc_assignments(player_id);
+CREATE INDEX IF NOT EXISTS idx_disc_assignments_disc_id ON disc_assignments(disc_id);
 
 -- Table for highscores (best values per user)
 CREATE TABLE IF NOT EXISTS highscores (

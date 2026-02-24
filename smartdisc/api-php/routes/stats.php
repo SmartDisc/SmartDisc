@@ -1,7 +1,22 @@
 <?php
 // Stats endpoint
 if ($path === "$prefix/stats/summary" && $method === 'GET') {
-  $stats = $pdo->query("
+  // Versuche, den aktuellen Benutzer über den Bearer-Token zu ermitteln
+  $user = null;
+  $token = get_bearer_token();
+  if ($token) {
+    $user = get_user_by_token($token);
+  }
+
+  // Spieler sehen nur Statistiken von Würfen ihrer zugeordneten Discs
+  $whereClause = "geloescht = 0";
+  $params = [];
+  if ($user && ($user['role'] ?? null) === 'player') {
+    $whereClause .= " AND EXISTS (SELECT 1 FROM disc_assignments da WHERE da.disc_id = wurfe.scheibe_id AND da.player_id = :current_player_id)";
+    $params[':current_player_id'] = $user['id'];
+  }
+
+  $sql = "
     SELECT 
       COUNT(*) AS count,
       MAX(rotation) AS rotation_max,
@@ -11,8 +26,16 @@ if ($path === "$prefix/stats/summary" && $method === 'GET') {
       MAX(acceleration_max) AS acceleration_max,
       AVG(acceleration_max) AS acceleration_avg
     FROM wurfe 
-    WHERE geloescht = 0
-  ")->fetch();
+    WHERE $whereClause
+  ";
+  
+  $stmt = $pdo->prepare($sql);
+  foreach ($params as $k => $v) {
+    $stmt->bindValue($k, $v);
+  }
+  $stmt->execute();
+  $stats = $stmt->fetch();
+  
   json_response([
     'count' => intval($stats['count'] ?? 0),
     'rotationMax' => floatval($stats['rotation_max'] ?? 0),
