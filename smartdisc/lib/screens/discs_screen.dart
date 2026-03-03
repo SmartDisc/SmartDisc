@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 // SharedPreferences usage moved to DiscService
 import '../services/disc_service.dart';
+import '../utils/responsive.dart';
 
 class DiscsScreen extends StatefulWidget {
   const DiscsScreen({super.key});
@@ -95,11 +96,12 @@ class _DiscsScreenState extends State<DiscsScreen> {
     if (_loading) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
+    final responsive = context.responsive;
     return Scaffold(
       body: _discs.isEmpty
           ? Center(
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                padding: EdgeInsets.symmetric(horizontal: responsive.horizontalPadding),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: const [
@@ -112,8 +114,11 @@ class _DiscsScreenState extends State<DiscsScreen> {
                 ),
               ),
             )
-          : ListView.separated(
-              padding: const EdgeInsets.all(16),
+          : Center(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: responsive.maxContentWidth),
+                child: ListView.separated(
+                  padding: EdgeInsets.all(responsive.horizontalPadding),
               itemCount: _discs.length,
               separatorBuilder: (_, __) => const SizedBox(height: 8),
               itemBuilder: (ctx, i) {
@@ -133,6 +138,8 @@ class _DiscsScreenState extends State<DiscsScreen> {
                   ),
                 );
               },
+                ),
+              ),
             ),
     );
   }

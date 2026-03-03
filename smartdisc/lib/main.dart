@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/date_symbol_data_local.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
 import 'screens/login_screen.dart';
 import 'screens/app_shell.dart';
 import 'screens/auth_start_screen.dart';
@@ -11,6 +13,14 @@ import 'styles/app.theme.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+  } catch (e) {
+    // Firebase ist optional – App soll auch ohne funktionierende
+    // Konfiguration startbar sein.
+  }
   try {
     await initializeDateFormatting('de_AT');
   } catch (_) {

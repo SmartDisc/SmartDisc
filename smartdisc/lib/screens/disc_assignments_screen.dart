@@ -4,6 +4,7 @@ import '../services/disc_service.dart';
 import '../services/auth_service.dart';
 import '../styles/app_font.dart';
 import '../styles/app_colors.dart';
+import '../utils/responsive.dart';
 
 class DiscAssignmentsScreen extends StatefulWidget {
   const DiscAssignmentsScreen({super.key});
@@ -236,16 +237,21 @@ class _DiscAssignmentsScreenState extends State<DiscAssignmentsScreen> {
                 )
               : RefreshIndicator(
                   onRefresh: _loadData,
-                  child: SingleChildScrollView(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildPlayerSelector(),
-                        const SizedBox(height: 24),
-                        _buildAssignments(),
-                      ],
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(maxWidth: context.responsive.maxContentWidth),
+                      child: SingleChildScrollView(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        padding: EdgeInsets.all(context.responsive.horizontalPadding),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildPlayerSelector(),
+                            SizedBox(height: context.responsive.verticalPadding),
+                            _buildAssignments(),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
                 ),

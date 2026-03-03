@@ -5,6 +5,7 @@ import '../styles/app_font.dart';
 import '../services/api_service.dart';
 import '../services/disc_service.dart';
 import '../models/wurf.dart';
+import '../utils/responsive.dart';
 
 class HistoryScreen extends StatefulWidget {
   const HistoryScreen({super.key});
@@ -93,10 +94,14 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
           final sessionKeys = sessionsMap.keys.toList()..sort((a, b) => b.compareTo(a));
 
+          final responsive = context.responsive;
           return RefreshIndicator(
             onRefresh: () async => _reload(),
-            child: ListView.builder(
-              padding: const EdgeInsets.all(12),
+            child: Center(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: responsive.maxContentWidth),
+                child: ListView.builder(
+                  padding: EdgeInsets.all(responsive.horizontalPadding),
               itemCount: sessionKeys.length,
               itemBuilder: (ctx, idx) {
                 final key = sessionKeys[idx];
@@ -127,6 +132,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
                   ),
                 );
               },
+                ),
+              ),
             ),
           );
         },

@@ -9,6 +9,7 @@ import '../styles/app_colors.dart';
 import '../styles/app_font.dart';
 import '../widgets/stat_card.dart';
 import '../models/wurf.dart';
+import '../utils/responsive.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -100,17 +101,19 @@ class DashboardScreenState extends State<DashboardScreen> {
             return const Center(child: CircularProgressIndicator());
           }
           final items = s.data ?? [];
-          // (Past sessions display removed from dashboard - use History screen)
-
-          // Responsive horizontal padding so narrow phones don't look cramped
-          final screenW = MediaQuery.of(context).size.width;
-          final horizontalPadding = screenW < 380 ? 12.0 : 16.0;
+          final responsive = context.responsive;
 
           // Compute KPIs for the selected disc
           final latest = items.isNotEmpty ? items.first : null;
 
-          return ListView(
-            padding: EdgeInsets.fromLTRB(horizontalPadding, 16, horizontalPadding, 24),
+          return Center(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: responsive.maxContentWidth),
+              child: ListView(
+                padding: EdgeInsets.symmetric(
+                  horizontal: responsive.horizontalPadding,
+                  vertical: responsive.verticalPadding,
+                ),
             children: [
               // 3D Frisbee preview directly under the header — make height responsive
               LayoutBuilder(builder: (ctx, constraints) {
@@ -170,8 +173,7 @@ class DashboardScreenState extends State<DashboardScreen> {
               // KPI grid — responsive columns using Wrap to avoid forcing tall intrinsic heights
               LayoutBuilder(builder: (ctx, constraints) {
                 final w = constraints.maxWidth;
-                // target two columns on narrow, up to four on wide
-                final cols = w < 420 ? 2 : (w < 900 ? 3 : 4);
+                final cols = responsive.getGridColumns(mobile: 2, tablet: 3, desktop: 4);
                 final spacing = 12.0;
                 final itemW = (w - (cols - 1) * spacing) / cols;
                 return Wrap(
@@ -259,8 +261,9 @@ class DashboardScreenState extends State<DashboardScreen> {
                 }),
 
               const SizedBox(height: 24),
-              const SizedBox.shrink(),
             ],
+              ),
+            ),
           );
         },
       ),

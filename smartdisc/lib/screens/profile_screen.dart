@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 import '../styles/app_font.dart';
 import '../styles/app_colors.dart';
+import '../utils/responsive.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -112,15 +113,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
             return const Center(child: CircularProgressIndicator());
           }
           final data = snapshot.data!;
-          return Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildHeader(data),
-                const SizedBox(height: 32),
-                _buildDetails(data),
-              ],
+          final responsive = context.responsive;
+          return Center(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: responsive.maxContentWidth),
+              child: Padding(
+                padding: EdgeInsets.all(responsive.horizontalPadding),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildHeader(data),
+                    SizedBox(height: responsive.verticalPadding),
+                    _buildDetails(data),
+                  ],
+                ),
+              ),
             ),
           );
         },

@@ -83,6 +83,110 @@ if ($path === "$prefix/auth/register") {
   }
 }
 
+// POST /api/auth/register-trainer-request - Trainer-Registrierung mit Freigabe-Workflow
+if ($path === "$prefix/auth/register-trainer-request") {
+  if ($method !== 'POST') {
+    json_response(['error' => ['code' => 'METHOD_NOT_ALLOWED', 'message' => 'Nur POST erlaubt']], 405);
+  }
+  $input = get_json_input();
+
+  // Validation (ähnlich wie bei normaler Registrierung)
+  $errors = [];
+  if (empty($input['first_name']) || trim($input['first_name']) === '') {
+    $errors[] = 'Vorname ist erforderlich';
+  }
+  if (empty($input['last_name']) || trim($input['last_name']) === '') {
+    $errors[] = 'Nachname ist erforderlich';
+  }
+  if (empty($input['email']) || !filter_var($input['email'], FILTER_VALIDATE_EMAIL)) {
+    $errors[] = 'Gültige E-Mail-Adresse ist erforderlich';
+  }
+  if (empty($input['password']) || strlen($input['password']) < 6) {
+    $errors[] = 'Passwort muss mindestens 6 Zeichen lang sein';
+  }
+  if (empty($input['password_confirm']) || $input['password'] !== $input['password_confirm']) {
+    $errors[] = 'Passwörter stimmen nicht überein';
+  }
+
+  if (!empty($errors)) {
+    json_response(['error' => ['code' => 'VALIDATION_ERROR', 'message' => implode(', ', $errors)]], 400);
+  }
+
+  // Prüfe ob Email bereits existiert
+  $checkStmt = $pdo->prepare("SELECT id FROM users WHERE email = :email");
+  $checkStmt->execute([':email' => trim(strtolower($input['email']))]);
+  if ($checkStmt->fetch()) {
+    json_response(['error' => ['code' => 'EMAIL_EXISTS', 'message' => 'Diese E-Mail-Adresse ist bereits registriert']], 409);
+  }
+
+  // Passwort hashen
+  $passwordHash = password_hash($input['password'], PASSWORD_DEFAULT);
+  $userId = bin2hex(random_bytes(16));
+  $requestId = bin2hex(random_bytes(16));
+  $approvalToken = bin2hex(random_bytes(24));
+
+  try {
+    $pdo->beginTransaction();
+
+    // Trainer-User anlegen (aber noch kein Token zurückgeben)
+    $stmt = $pdo->prepare("
+      INSERT INTO users (id, first_name, last_name, email, password_hash, role, created_at)
+      VALUES (:id, :first_name, :last_name, :email, :password_hash, :role, strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+    ");
+    $stmt->execute([
+      ':id' => $userId,
+      ':first_name' => trim($input['first_name']),
+      ':last_name' => trim($input['last_name']),
+      ':email' => trim(strtolower($input['email'])),
+      ':password_hash' => $passwordHash,
+      ':role' => 'trainer',
+    ]);
+
+    // Trainer-Request anlegen
+    $reqStmt = $pdo->prepare("
+      INSERT INTO trainer_requests (id, user_id, status, created_at, approval_token)
+      VALUES (:id, :user_id, 'pending', strftime('%Y-%m-%dT%H:%M:%fZ','now'), :token)
+    ");
+    $reqStmt->execute([
+      ':id' => $requestId,
+      ':user_id' => $userId,
+      ':token' => $approvalToken,
+    ]);
+
+    $pdo->commit();
+  } catch (Exception $e) {
+    $pdo->rollBack();
+    json_response(['error' => ['code' => 'REGISTER_TRAINER_FAILED', 'message' => $e->getMessage()]], 500);
+  }
+
+  // E-Mail an die Verantwortlichen schicken
+  $host = $_SERVER['HTTP_HOST'] ?? 'localhost:8000';
+  $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+  $baseUrl = $scheme . '://' . $host . $prefix;
+
+  $approveUrl = $baseUrl . '/admin/trainer-requests/approve?token=' . $approvalToken;
+  $rejectUrl = $baseUrl . '/admin/trainer-requests/reject?token=' . $approvalToken;
+
+  $to = '9040@htl.rennweg.at, 1054@htl.rennweg.at';
+  $subject = 'SmartDisc Trainer-Registrierung: Anfrage zur Freigabe';
+  $message = "Es liegt eine neue Trainer/Coach-Registrierung vor:\n\n"
+    . "Name: " . trim($input['first_name']) . " " . trim($input['last_name']) . "\n"
+    . "E-Mail: " . trim(strtolower($input['email'])) . "\n\n"
+    . "Bitte entscheide über die Freigabe:\n"
+    . "Freigeben: $approveUrl\n"
+    . "Ablehnen: $rejectUrl\n\n"
+    . "SmartDisc System";
+
+  // mail() kann auf lokalen Dev-Systemen evtl. nicht konfiguriert sein.
+  // Wir versuchen es trotzdem und ignorieren Fehler.
+  @mail($to, $subject, $message);
+
+  json_response([
+    'ok' => true,
+    'message' => 'Trainer-Registrierungsanfrage wurde erstellt und zur Freigabe versendet.',
+  ], 201);
+}
+
 // POST /api/auth/login - Benutzer einloggen
 if ($path === "$prefix/auth/login") {
   if ($method !== 'POST') {
@@ -100,6 +204,28 @@ if ($path === "$prefix/auth/login") {
 
   if (!$user || !password_verify($input['password'], $user['password_hash'])) {
     json_response(['error' => ['code' => 'INVALID_CREDENTIALS', 'message' => 'Ungültige E-Mail oder Passwort']], 401);
+  }
+
+  // Für Trainer: prüfen, ob eine Anfrage existiert und freigegeben wurde
+  if (($user['role'] ?? null) === 'trainer') {
+    $reqStmt = $pdo->prepare("
+      SELECT status
+      FROM trainer_requests
+      WHERE user_id = :user_id
+      ORDER BY created_at DESC
+      LIMIT 1
+    ");
+    $reqStmt->execute([':user_id' => $user['id']]);
+    $request = $reqStmt->fetch();
+
+    if ($request && $request['status'] !== 'approved') {
+      $code = $request['status'] === 'rejected' ? 'TRAINER_REJECTED' : 'TRAINER_NOT_APPROVED';
+      $message = $request['status'] === 'rejected'
+        ? 'Deine Trainer-Anfrage wurde abgelehnt.'
+        : 'Dein Trainer-Konto wurde noch nicht freigegeben.';
+
+      json_response(['error' => ['code' => $code, 'message' => $message]], 403);
+    }
   }
 
   // Token generieren und speichern

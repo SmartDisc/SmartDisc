@@ -10,6 +10,7 @@ import '../services/disc_service.dart';
 import '../models/wurf.dart';
 import '../styles/app_colors.dart';
 import '../styles/app_font.dart';
+import '../utils/responsive.dart';
 
 enum YAxisMetric {
   rotation, // Rotation
@@ -129,6 +130,127 @@ class AnalysisScreenState extends State<AnalysisScreen> {
       }
     }
     return firstTime;
+  }
+
+  Widget _buildFilterRow(Responsive responsive) {
+    final discFilter = Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        decoration: BoxDecoration(
+          color: AppColors.background,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: DropdownButton<String?>(
+          value: _selectedDisc,
+          hint: Row(
+            children: const [
+              Icon(Icons.filter_alt_outlined, size: 18, color: AppColors.textMuted),
+              SizedBox(width: 6),
+              Text('All Discs', style: TextStyle(fontSize: 14, color: AppColors.textPrimary)),
+            ],
+          ),
+          isExpanded: true,
+          underline: const SizedBox(),
+          icon: const Icon(Icons.arrow_drop_down, size: 20, color: AppColors.primary),
+          items: [
+            DropdownMenuItem<String?>(
+              value: null,
+              child: Row(
+                children: const [
+                  Icon(Icons.all_inclusive, size: 18, color: AppColors.primary),
+                  SizedBox(width: 8),
+                  Text('All Discs', style: TextStyle(fontSize: 14)),
+                ],
+              ),
+            ),
+            ..._getAvailableDiscs().map((discInfo) {
+              final discId = discInfo['id'] ?? '';
+              final discName = discInfo['name'] ?? discId;
+              return DropdownMenuItem<String?>(
+                value: discId,
+                child: Text(discName, style: const TextStyle(fontSize: 14)),
+              );
+            }),
+          ],
+          onChanged: (String? newValue) {
+            setState(() {
+              _selectedDisc = newValue;
+              _applyDiscFilter();
+            });
+          },
+        ),
+      ),
+    );
+
+    final metricFilter = Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        decoration: BoxDecoration(
+          color: AppColors.background,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: DropdownButton<YAxisMetric>(
+          value: _selectedMetric,
+          isExpanded: true,
+          underline: const SizedBox(),
+          icon: const Icon(Icons.arrow_drop_down, size: 20, color: AppColors.primary),
+          items: YAxisMetric.values.map((metric) {
+            IconData icon;
+            switch (metric) {
+              case YAxisMetric.rotation:
+                icon = Icons.rotate_right;
+                break;
+              case YAxisMetric.height:
+                icon = Icons.height;
+                break;
+              case YAxisMetric.acceleration:
+                icon = Icons.speed;
+                break;
+            }
+            return DropdownMenuItem<YAxisMetric>(
+              value: metric,
+              child: Row(
+                children: [
+                  Icon(icon, size: 18, color: AppColors.primary),
+                  const SizedBox(width: 8),
+                  Text(
+                    _getMetricDisplayName(metric),
+                    style: const TextStyle(fontSize: 14),
+                  ),
+                ],
+              ),
+            );
+          }).toList(),
+          onChanged: (YAxisMetric? newValue) {
+            if (newValue != null) {
+              setState(() {
+                _selectedMetric = newValue;
+              });
+            }
+          },
+        ),
+      ),
+    );
+
+    if (responsive.isMobile) {
+      return Column(
+        children: [
+          discFilter,
+          const SizedBox(height: 8),
+          metricFilter,
+        ],
+      );
+    } else {
+      return Row(
+        children: [
+          discFilter,
+          const SizedBox(width: 12),
+          metricFilter,
+        ],
+      );
+    }
   }
 
   void openExportSheet() {
@@ -373,8 +495,11 @@ class AnalysisScreenState extends State<AnalysisScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final responsive = context.responsive;
     final screenHeight = MediaQuery.of(context).size.height;
-    final chartHeight = (screenHeight * 0.4).clamp(250.0, 400.0);
+    final chartHeight = responsive.isMobile 
+        ? (screenHeight * 0.3).clamp(200.0, 300.0)
+        : (screenHeight * 0.4).clamp(250.0, 400.0);
     
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -386,123 +511,24 @@ class AnalysisScreenState extends State<AnalysisScreen> {
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(60),
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Row(
-              children: [
-                // Disc Filter
-                Expanded(
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: AppColors.background,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: AppColors.border),
-                    ),
-                    child: DropdownButton<String?>(
-                      value: _selectedDisc,
-                      hint: Row(
-                        children: const [
-                          Icon(Icons.filter_alt_outlined, size: 18, color: AppColors.textMuted),
-                          SizedBox(width: 6),
-                          Text('All Discs', style: TextStyle(fontSize: 14, color: AppColors.textPrimary)),
-                        ],
-                      ),
-                      isExpanded: true,
-                      underline: const SizedBox(),
-                      icon: const Icon(Icons.arrow_drop_down, size: 20, color: AppColors.primary),
-                      items: [
-                        DropdownMenuItem<String?>(
-                          value: null,
-                          child: Row(
-                            children: const [
-                              Icon(Icons.all_inclusive, size: 18, color: AppColors.primary),
-                              SizedBox(width: 8),
-                              Text('All Discs', style: TextStyle(fontSize: 14)),
-                            ],
-                          ),
-                        ),
-                        ..._getAvailableDiscs().map((discInfo) {
-                          final discId = discInfo['id'] ?? '';
-                          final discName = discInfo['name'] ?? discId;
-                          return DropdownMenuItem<String?>(
-                            value: discId,
-                            child: Text(discName, style: const TextStyle(fontSize: 14)),
-                          );
-                        }),
-                      ],
-                      onChanged: (String? newValue) {
-                        setState(() {
-                          _selectedDisc = newValue;
-                          _applyDiscFilter();
-                        });
-                      },
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                // Metric Filter
-                Expanded(
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: AppColors.background,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: AppColors.border),
-                    ),
-                    child: DropdownButton<YAxisMetric>(
-                      value: _selectedMetric,
-                      isExpanded: true,
-                      underline: const SizedBox(),
-                      icon: const Icon(Icons.arrow_drop_down, size: 20, color: AppColors.primary),
-                      items: YAxisMetric.values.map((metric) {
-                        IconData icon;
-                        switch (metric) {
-                          case YAxisMetric.rotation:
-                            icon = Icons.rotate_right;
-                            break;
-                          case YAxisMetric.height:
-                            icon = Icons.height;
-                            break;
-                          case YAxisMetric.acceleration:
-                            icon = Icons.speed;
-                            break;
-                        }
-                        return DropdownMenuItem<YAxisMetric>(
-                          value: metric,
-                          child: Row(
-                            children: [
-                              Icon(icon, size: 18, color: AppColors.primary),
-                              const SizedBox(width: 8),
-                              Text(
-                                _getMetricDisplayName(metric),
-                                style: const TextStyle(fontSize: 14),
-                              ),
-                            ],
-                          ),
-                        );
-                      }).toList(),
-                      onChanged: (YAxisMetric? newValue) {
-                        if (newValue != null) {
-                          setState(() {
-                            _selectedMetric = newValue;
-                          });
-                        }
-                      },
-                    ),
-                  ),
-                ),
-              ],
+            padding: EdgeInsets.symmetric(
+              horizontal: responsive.horizontalPadding,
+              vertical: 8,
             ),
+            child: _buildFilterRow(responsive),
           ),
         ),
       ),
       body: SafeArea(
-        child: Column(
-          children: [
-            Expanded(
-              child: _isLoading
-                  ? const Center(child: CircularProgressIndicator())
-                  : _wurfe.isEmpty
+        child: Center(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: responsive.maxContentWidth),
+            child: Column(
+              children: [
+                Expanded(
+                  child: _isLoading
+                      ? const Center(child: CircularProgressIndicator())
+                      : _wurfe.isEmpty
               ? Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -792,7 +818,9 @@ class AnalysisScreenState extends State<AnalysisScreen> {
                 ),
               ),
             ),
-          ],
+              ],
+            ),
+          ),
         ),
       ),
     );

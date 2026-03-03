@@ -8,6 +8,7 @@ import 'ble_test_screen.dart';
 import 'disc_assignments_screen.dart';
 import '../services/auth_service.dart';
 import '../services/disc_service.dart';
+import '../utils/responsive.dart';
 
 class AppShell extends StatefulWidget {
   /// initialIndex selects which tab to show
@@ -297,20 +298,55 @@ class _AppShellState extends State<AppShell> {
       );
     }
 
-    return Scaffold(
-      appBar: AppBar(
-        automaticallyImplyLeading: false,
-        title: Text(_titles[_selectedIndex]),
-        actions: _getAppBarActions(),
-      ),
-      // The body contains the pages as full Scaffolds so each can keep its own AppBar/FAB
-      body: IndexedStack(index: _selectedIndex, children: _pages),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _selectedIndex,
-        onTap: _onItemTapped,
-        type: BottomNavigationBarType.fixed,
-        items: _navItems,
-      ),
-    );
+    final responsive = context.responsive;
+    final isMobile = responsive.isMobile;
+
+    if (isMobile) {
+      // Mobile: Bottom Navigation
+      return Scaffold(
+        appBar: AppBar(
+          automaticallyImplyLeading: false,
+          title: Text(_titles[_selectedIndex]),
+          actions: _getAppBarActions(),
+        ),
+        body: IndexedStack(index: _selectedIndex, children: _pages),
+        bottomNavigationBar: BottomNavigationBar(
+          currentIndex: _selectedIndex,
+          onTap: _onItemTapped,
+          type: BottomNavigationBarType.fixed,
+          items: _navItems,
+        ),
+      );
+    } else {
+      // Tablet/Desktop: Navigation Rail
+      return Scaffold(
+        appBar: AppBar(
+          automaticallyImplyLeading: false,
+          title: Text(_titles[_selectedIndex]),
+          actions: _getAppBarActions(),
+        ),
+        body: Row(
+          children: [
+            NavigationRail(
+              selectedIndex: _selectedIndex,
+              onDestinationSelected: _onItemTapped,
+              labelType: NavigationRailLabelType.all,
+              extended: responsive.isLargeDesktop,
+              destinations: _navItems.map((item) {
+                return NavigationRailDestination(
+                  icon: item.icon,
+                  selectedIcon: item.activeIcon ?? item.icon,
+                  label: Text(item.label ?? ''),
+                );
+              }).toList(),
+            ),
+            const VerticalDivider(thickness: 1, width: 1),
+            Expanded(
+              child: IndexedStack(index: _selectedIndex, children: _pages),
+            ),
+          ],
+        ),
+      );
+    }
   }
 }

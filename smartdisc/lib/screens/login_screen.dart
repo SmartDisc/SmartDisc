@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 import '../styles/app_colors.dart';
 import '../styles/app_font.dart';
+import '../utils/responsive.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -149,9 +150,14 @@ class _LoginScreenState extends State<LoginScreen> {
           color: AppColors.background,
           child: Center(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 32),
+              padding: EdgeInsets.symmetric(
+                horizontal: context.responsive.horizontalPadding,
+                vertical: context.responsive.verticalPadding,
+              ),
               child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 420),
+                constraints: BoxConstraints(
+                  maxWidth: context.responsive.isDesktop ? 420 : double.infinity,
+                ),
                 child: Form(
                   key: _formKey,
                   child: Column(

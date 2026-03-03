@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 import '../styles/app_colors.dart';
 import '../styles/app_font.dart';
+import '../utils/responsive.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -39,24 +40,60 @@ class _RegisterScreenState extends State<RegisterScreen> {
       _errorMessage = null;
     });
     try {
-      await _auth.register(
-        firstName: _firstNameController.text.trim(),
-        lastName: _lastNameController.text.trim(),
-        email: _emailController.text.trim(),
-        password: _passwordController.text,
-        passwordConfirm: _passwordConfirmController.text,
-        role: _selectedRole,
-      );
-      if (!mounted) return;
-      final role = await _auth.currentUserRole();
-      if (!mounted) return;
-      final navigator = Navigator.of(context);
-      if (role == 'player') {
-        navigator.pushReplacementNamed('/player/dashboard');
-      } else if (role == 'trainer') {
-        navigator.pushReplacementNamed('/trainer/dashboard');
+      if (_selectedRole == 'trainer') {
+        await _auth.registerTrainerRequest(
+          firstName: _firstNameController.text.trim(),
+          lastName: _lastNameController.text.trim(),
+          email: _emailController.text.trim(),
+          password: _passwordController.text,
+          passwordConfirm: _passwordConfirmController.text,
+        );
+        if (!mounted) return;
+
+        await showDialog<void>(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) {
+            return AlertDialog(
+              title: const Text('Trainer-Anfrage gesendet'),
+              content: const Text(
+                'Deine Registrierung als Trainer/Coach wurde übermittelt.\n\n'
+                'Die Verantwortlichen (9040@htl.rennweg.at und 1054@htl.rennweg.at) '
+                'erhalten eine E-Mail und können deine Anfrage freigeben oder ablehnen. '
+                'Du wirst informiert, sobald deine Registrierung bestätigt wurde.',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('OK'),
+                ),
+              ],
+            );
+          },
+        );
+
+        if (!mounted) return;
+        Navigator.of(context).pushReplacementNamed('/auth/login');
       } else {
-        navigator.pushReplacementNamed('/auth');
+        await _auth.register(
+          firstName: _firstNameController.text.trim(),
+          lastName: _lastNameController.text.trim(),
+          email: _emailController.text.trim(),
+          password: _passwordController.text,
+          passwordConfirm: _passwordConfirmController.text,
+          role: _selectedRole,
+        );
+        if (!mounted) return;
+        final role = await _auth.currentUserRole();
+        if (!mounted) return;
+        final navigator = Navigator.of(context);
+        if (role == 'player') {
+          navigator.pushReplacementNamed('/player/dashboard');
+        } else if (role == 'trainer') {
+          navigator.pushReplacementNamed('/trainer/dashboard');
+        } else {
+          navigator.pushReplacementNamed('/auth');
+        }
       }
     } catch (e) {
       if (!context.mounted) return;
@@ -86,9 +123,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
           color: AppColors.background,
           child: Center(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 32),
+              padding: EdgeInsets.symmetric(
+                horizontal: context.responsive.horizontalPadding,
+                vertical: context.responsive.verticalPadding,
+              ),
               child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 420),
+                constraints: BoxConstraints(
+                  maxWidth: context.responsive.isDesktop ? 420 : double.infinity,
+                ),
                 child: Form(
                   key: _formKey,
                   child: Column(

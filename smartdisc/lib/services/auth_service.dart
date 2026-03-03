@@ -128,6 +128,49 @@ class AuthService {
     }
   }
 
+  /// Sends a registration request for a trainer/coach that must be approved
+  /// by an administrator before the account becomes active.
+  ///
+  /// The backend endpoint is responsible for:
+  /// - creating the pending trainer account
+  /// - sending notification emails to the approvers
+  /// - not issuing an auth token until the account is approved
+  Future<void> registerTrainerRequest({
+    required String firstName,
+    required String lastName,
+    required String email,
+    required String password,
+    required String passwordConfirm,
+  }) async {
+    try {
+      final res = await _client.post(
+        _u('/auth/register-trainer-request'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'first_name': firstName.trim(),
+          'last_name': lastName.trim(),
+          'email': email.trim(),
+          'password': password,
+          'password_confirm': passwordConfirm,
+        }),
+      );
+
+      final body = jsonDecode(res.body) as Map<String, dynamic>;
+
+      // Accept 201 (created) or 202 (accepted/pending) as success codes.
+      if (res.statusCode != 201 && res.statusCode != 202) {
+        final error = body['error'] as Map<String, dynamic>?;
+        throw Exception(error?['message'] ?? 'Trainer registration request failed');
+      }
+
+      // Intentionally do NOT store a token here – the account must first
+      // be approved by an administrator.
+    } catch (e) {
+      if (e is Exception) rethrow;
+      throw Exception('Netzwerkfehler: ${e.toString()}');
+    }
+  }
+
   Future<Map<String, dynamic>?> me() async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     final String? token = prefs.getString(_tokenKey);

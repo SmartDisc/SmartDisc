@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1004887688250",
+    "project_id": "smartdisc",
+    "storage_bucket": "smartdisc.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1004887688250:android:0f2c168d091b32c2c76103",
+        "android_client_info": {
+          "package_name": "com.example.smartdisc"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD9mQP4imQnC8_2tZjtlhePBPpBz1zdrbw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

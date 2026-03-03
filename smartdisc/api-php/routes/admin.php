@@ -1,5 +1,5 @@
 <?php
-// Admin overview routes (trainer only)
+// Admin / Trainer-bezogene Routen
 
 // GET /api/admin/overview - high level overview for trainers
 if ($path === "$prefix/admin/overview" && $method === 'GET') {
@@ -74,4 +74,68 @@ if ($path === "$prefix/admin/overview" && $method === 'GET') {
     'discs' => $discs,
     'throws_sample' => $throws,
   ]);
+}
+
+// Helper für Trainer-Request-Entscheidungen per Token
+function handle_trainer_request_decision($status)
+{
+  global $pdo, $prefix;
+
+  $token = $_GET['token'] ?? null;
+  if (!$token) {
+    json_response(['error' => ['code' => 'MISSING_TOKEN', 'message' => 'Token fehlt']], 400);
+  }
+
+  $stmt = $pdo->prepare("
+    SELECT tr.id, tr.status, tr.user_id, u.email, u.first_name, u.last_name
+    FROM trainer_requests tr
+    JOIN users u ON u.id = tr.user_id
+    WHERE tr.approval_token = :token
+    LIMIT 1
+  ");
+  $stmt->execute([':token' => $token]);
+  $request = $stmt->fetch();
+
+  if (!$request) {
+    json_response(['error' => ['code' => 'INVALID_TOKEN', 'message' => 'Ungültiger oder abgelaufener Token']], 404);
+  }
+
+  if ($request['status'] !== 'pending') {
+    json_response(['error' => ['code' => 'ALREADY_DECIDED', 'message' => 'Diese Anfrage wurde bereits bearbeitet']], 400);
+  }
+
+  $update = $pdo->prepare("
+    UPDATE trainer_requests
+    SET status = :status,
+        decided_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
+    WHERE id = :id
+  ");
+  $update->execute([
+    ':status' => $status,
+    ':id' => $request['id'],
+  ]);
+
+  $msg = $status === 'approved'
+    ? 'Trainer-Anfrage wurde erfolgreich freigegeben.'
+    : 'Trainer-Anfrage wurde abgelehnt.';
+
+  json_response([
+    'ok' => true,
+    'message' => $msg,
+    'user' => [
+      'email' => $request['email'],
+      'first_name' => $request['first_name'],
+      'last_name' => $request['last_name'],
+    ],
+  ]);
+}
+
+// GET /api/admin/trainer-requests/approve?token=... - Anfrage freigeben
+if ($path === "$prefix/admin/trainer-requests/approve" && $method === 'GET') {
+  handle_trainer_request_decision('approved');
+}
+
+// GET /api/admin/trainer-requests/reject?token=... - Anfrage ablehnen
+if ($path === "$prefix/admin/trainer-requests/reject" && $method === 'GET') {
+  handle_trainer_request_decision('rejected');
 }
