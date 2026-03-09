@@ -330,7 +330,6 @@ class _AppShellState extends State<AppShell> {
             NavigationRail(
               selectedIndex: _selectedIndex,
               onDestinationSelected: _onItemTapped,
-              labelType: NavigationRailLabelType.all,
               extended: responsive.isLargeDesktop,
               destinations: _navItems.map((item) {
                 return NavigationRailDestination(
