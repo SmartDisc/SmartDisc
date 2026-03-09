@@ -1,6 +1,8 @@
 # Miscellaneous
 *.class
 *.log
+**/node_modules/
+smartdisc/backend-node/
 *.pyc
 *.swp
 .DS_Store
