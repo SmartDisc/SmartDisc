@@ -155,7 +155,7 @@ if (in_array($path, $wurfeListPaths, true) && $method === 'POST') {
         if ($current === false) {
           $insertStmt = $pdo->prepare("
             INSERT INTO highscores (user_id, best_rotation, best_hoehe, best_acceleration_max, updated_at)
-            VALUES (:user_id, :rotation, :hoehe, :accel, strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+            VALUES (:user_id, :rotation, :hoehe, :accel, NOW())
           ");
           $insertStmt->execute([
             ':user_id' => $playerId,
@@ -173,7 +173,7 @@ if (in_array($path, $wurfeListPaths, true) && $method === 'POST') {
               best_rotation = :rotation,
               best_hoehe = :hoehe,
               best_acceleration_max = :accel,
-              updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
+              updated_at = NOW()
             WHERE user_id = :user_id
           ");
           $updateStmt->execute([

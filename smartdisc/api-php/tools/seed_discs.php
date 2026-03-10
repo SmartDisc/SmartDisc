@@ -28,7 +28,7 @@ function ensure_disc_exists(PDO $pdo, string $id, string $name): void {
 
   $stmt = $pdo->prepare("
     INSERT INTO scheiben (id, name, aktiv, erstellt_am, geaendert_am)
-    VALUES (:id, :name, 1, strftime('%Y-%m-%dT%H:%M:%fZ','now'), strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+    VALUES (:id, :name, TRUE, NOW(), NOW())
   ");
   $stmt->execute([
     ':id' => $id,

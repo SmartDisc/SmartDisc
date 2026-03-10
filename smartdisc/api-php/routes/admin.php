@@ -107,7 +107,7 @@ function handle_trainer_request_decision($status)
   $update = $pdo->prepare("
     UPDATE trainer_requests
     SET status = :status,
-        decided_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
+        decided_at = NOW()
     WHERE id = :id
   ");
   $update->execute([
