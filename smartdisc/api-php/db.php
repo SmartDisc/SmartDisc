@@ -1,16 +1,17 @@
 <?php
 
-$DB_HOST = '127.0.0.1';
-$DB_PORT = '5432';
-$DB_NAME = 'smartdisc';
-$DB_USER = 'smartdisc_user';
-$DB_PASS = 'SmartDisc123!';
+// SQLite database - no server needed
+$dbPath = __DIR__ . '/data/smartdisc.db';
+$dbDir = dirname($dbPath);
+if (!is_dir($dbDir)) {
+    mkdir($dbDir, 0755, true);
+}
 
 try {
     $pdo = new PDO(
-        "pgsql:host=$DB_HOST;port=$DB_PORT;dbname=$DB_NAME",
-        $DB_USER,
-        $DB_PASS,
+        "sqlite:$dbPath",
+        null,
+        null,
         [
             PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
@@ -36,9 +37,9 @@ CREATE TABLE IF NOT EXISTS scheiben (
     seriennummer TEXT,
     firmware_version TEXT,
     kalibrierungsdatum TEXT,
-    aktiv BOOLEAN NOT NULL DEFAULT TRUE,
-    erstellt_am TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    geaendert_am TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    aktiv INTEGER NOT NULL DEFAULT 1,
+    erstellt_am TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    geaendert_am TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS users (
@@ -48,33 +49,33 @@ CREATE TABLE IF NOT EXISTS users (
     email TEXT NOT NULL UNIQUE,
     password_hash TEXT NOT NULL,
     role TEXT NOT NULL CHECK (role IN ('player', 'trainer')),
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS trainer_requests (
     id TEXT PRIMARY KEY,
     user_id TEXT NOT NULL,
     status TEXT NOT NULL CHECK (status IN ('pending', 'approved', 'rejected')),
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    decided_at TIMESTAMPTZ,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    decided_at TEXT,
     approval_token TEXT NOT NULL UNIQUE,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS auth_tokens (
-    id BIGSERIAL PRIMARY KEY,
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id TEXT NOT NULL,
     token TEXT NOT NULL UNIQUE,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS disc_assignments (
-    id BIGSERIAL PRIMARY KEY,
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
     disc_id TEXT NOT NULL,
     player_id TEXT NOT NULL,
     assigned_by TEXT,
-    assigned_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    assigned_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     UNIQUE (disc_id, player_id),
     FOREIGN KEY (disc_id) REFERENCES scheiben(id) ON DELETE CASCADE,
     FOREIGN KEY (player_id) REFERENCES users(id) ON DELETE CASCADE,
@@ -85,37 +86,37 @@ CREATE TABLE IF NOT EXISTS wurfe (
     id TEXT PRIMARY KEY,
     scheibe_id TEXT NOT NULL,
     player_id TEXT,
-    rotation DOUBLE PRECISION,
-    hoehe DOUBLE PRECISION,
-    acceleration_max DOUBLE PRECISION,
-    erstellt_am TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    geaendert_am TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    rotation REAL,
+    hoehe REAL,
+    acceleration_max REAL,
+    erstellt_am TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    geaendert_am TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     version INTEGER NOT NULL DEFAULT 1,
-    geloescht BOOLEAN NOT NULL DEFAULT FALSE,
-    geloescht_am TIMESTAMPTZ,
+    geloescht INTEGER NOT NULL DEFAULT 0,
+    geloescht_am TEXT,
     FOREIGN KEY (scheibe_id) REFERENCES scheiben(id),
     FOREIGN KEY (player_id) REFERENCES users(id) ON DELETE SET NULL
 );
 
 CREATE TABLE IF NOT EXISTS audit_log (
-    id BIGSERIAL PRIMARY KEY,
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
     tabelle TEXT NOT NULL,
     datensatz_id TEXT NOT NULL,
     operation TEXT NOT NULL,
-    alte_daten JSONB,
-    neue_daten JSONB,
+    alte_daten TEXT,
+    neue_daten TEXT,
     benutzer TEXT,
-    zeitpunkt TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    zeitpunkt TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     ip_adresse TEXT,
     user_agent TEXT
 );
 
 CREATE TABLE IF NOT EXISTS highscores (
     user_id TEXT PRIMARY KEY,
-    best_rotation DOUBLE PRECISION,
-    best_hoehe DOUBLE PRECISION,
-    best_acceleration_max DOUBLE PRECISION,
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    best_rotation REAL,
+    best_hoehe REAL,
+    best_acceleration_max REAL,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 

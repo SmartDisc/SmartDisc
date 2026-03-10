@@ -50,7 +50,7 @@ if ($path === "$prefix/auth/register") {
     // User einfügen
     $stmt = $pdo->prepare("
       INSERT INTO users (id, first_name, last_name, email, password_hash, role, created_at)
-      VALUES (:id, :first_name, :last_name, :email, :password_hash, :role, NOW())
+      VALUES (:id, :first_name, :last_name, :email, :password_hash, :role, datetime('now'))
     ");
     $stmt->execute([
       ':id' => $userId,
@@ -131,7 +131,7 @@ if ($path === "$prefix/auth/register-trainer-request") {
     // Trainer-User anlegen (aber noch kein Token zurückgeben)
     $stmt = $pdo->prepare("
       INSERT INTO users (id, first_name, last_name, email, password_hash, role, created_at)
-      VALUES (:id, :first_name, :last_name, :email, :password_hash, :role, NOW())
+      VALUES (:id, :first_name, :last_name, :email, :password_hash, :role, datetime('now'))
     ");
     $stmt->execute([
       ':id' => $userId,
@@ -145,7 +145,7 @@ if ($path === "$prefix/auth/register-trainer-request") {
     // Trainer-Request anlegen
     $reqStmt = $pdo->prepare("
       INSERT INTO trainer_requests (id, user_id, status, created_at, approval_token)
-      VALUES (:id, :user_id, 'pending', NOW(), :token)
+      VALUES (:id, :user_id, 'pending', datetime('now'), :token)
     ");
     $reqStmt->execute([
       ':id' => $requestId,
