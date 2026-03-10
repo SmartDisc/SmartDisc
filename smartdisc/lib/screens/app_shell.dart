@@ -237,22 +237,8 @@ class _AppShellState extends State<AppShell> {
                     final svc = DiscService.instance();
                     await svc.init();
                     
-                    // Check for duplicates before creating
-                    final existingDiscs = svc.discs.value;
-                    final duplicateExists = existingDiscs.any(
-                      (disc) => (disc['id'] as String?)?.toUpperCase() == normalizedId,
-                    );
-                    
-                    if (duplicateExists) {
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('Disc ID "$normalizedId" already exists'),
-                          ),
-                        );
-                      }
-                      return;
-                    }
+                    // Note: Players only see assigned discs, so we can't check duplicates client-side.
+                    // The backend will handle duplicate validation with proper error messages.
                     
                     try {
                       await svc.add(
@@ -268,8 +254,21 @@ class _AppShellState extends State<AppShell> {
                       }
                     } catch (e) {
                       if (context.mounted) {
+                        // Extract user-friendly error message
+                        final errorStr = e.toString().toLowerCase();
+                        String message;
+                        
+                        if (errorStr.contains('duplicate_key') || 
+                            errorStr.contains('already exists') ||
+                            errorStr.contains('unique constraint') ||
+                            errorStr.contains('integrity constraint')) {
+                          message = 'Disc ID "$normalizedId" already exists. Choose a different ID.';
+                        } else {
+                          message = 'Failed to add disc. Please try again.';
+                        }
+                        
                         ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Failed to add disc: $e')),
+                          SnackBar(content: Text(message)),
                         );
                       }
                     }
