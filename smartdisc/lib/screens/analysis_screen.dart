@@ -427,27 +427,17 @@ class AnalysisScreenState extends State<AnalysisScreen> {
   }
 
   List<Map<String, String>> _getAvailableDiscs() {
-    // Get discs from DiscService (backend-managed) - these are the source of truth
+    // Nur Discs aus dem DiscService (Backend) anzeigen.
+    // Dadurch gibt es keine doppelten Einträge wie eine zweite „1“ aus alten Wurf‑Daten.
     final discMap = <String, String>{}; // id -> display name
-    
-    // First, add all discs from backend
+
     for (final disc in _discService.discs.value) {
       final id = (disc['id'] as String?) ?? '';
       if (id.isNotEmpty) {
         discMap[id] = (disc['name'] as String?) ?? id;
       }
     }
-    
-    // Also include any disc IDs from throws (in case there's data for a disc that's been deleted)
-    for (final wurf in _allWurfe) {
-      if (wurf.scheibeId != null && wurf.scheibeId!.isNotEmpty) {
-        if (!discMap.containsKey(wurf.scheibeId)) {
-          discMap[wurf.scheibeId!] = wurf.scheibeId!;
-        }
-      }
-    }
-    
-    // Convert to list of maps for easier handling
+
     return discMap.entries
         .map((e) => {'id': e.key, 'name': e.value})
         .toList()
@@ -462,8 +452,28 @@ class AnalysisScreenState extends State<AnalysisScreen> {
       // Show all
       _wurfe = List.from(combined);
     } else {
-      // Filter by selected disc
-      _wurfe = combined.where((w) => w.scheibeId == _selectedDisc).toList();
+      // Filter by selected disc.
+      // Spezialfall: In der Datenbank kann die scheibe_id entweder die Disc-ID
+      // (z.B. "DISC-90") oder der im Backend gepflegte Name sein (z.B. "1").
+      // Daher matchen wir sowohl auf ID als auch auf den Disc-Namen.
+      String? discName;
+      try {
+        final disc = _discService.discs.value.firstWhere(
+          (d) => (d['id'] as String?) == _selectedDisc,
+          orElse: () => {},
+        );
+        discName = disc['name'] as String?;
+      } catch (_) {
+        discName = null;
+      }
+
+      _wurfe = combined.where((w) {
+        final id = w.scheibeId;
+        if (id == null || id.isEmpty) return false;
+        if (id == _selectedDisc) return true;
+        if (discName != null && discName.isNotEmpty && id == discName) return true;
+        return false;
+      }).toList();
     }
     // Re-sort by timestamp
     _wurfe.sort((a, b) {
