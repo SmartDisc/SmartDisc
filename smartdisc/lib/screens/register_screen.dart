@@ -41,39 +41,25 @@ class _RegisterScreenState extends State<RegisterScreen> {
     });
     try {
       if (_selectedRole == 'trainer') {
-        await _auth.registerTrainerRequest(
+        await _auth.register(
           firstName: _firstNameController.text.trim(),
           lastName: _lastNameController.text.trim(),
           email: _emailController.text.trim(),
           password: _passwordController.text,
           passwordConfirm: _passwordConfirmController.text,
+          role: 'trainer',
         );
         if (!mounted) return;
-
-        await showDialog<void>(
-          context: context,
-          barrierDismissible: false,
-          builder: (context) {
-            return AlertDialog(
-              title: const Text('Trainer-Anfrage gesendet'),
-              content: const Text(
-                'Deine Registrierung als Trainer/Coach wurde übermittelt.\n\n'
-                'Die Verantwortlichen (9040@htl.rennweg.at und 1054@htl.rennweg.at) '
-                'erhalten eine E-Mail und können deine Anfrage freigeben oder ablehnen. '
-                'Du wirst informiert, sobald deine Registrierung bestätigt wurde.',
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('OK'),
-                ),
-              ],
-            );
-          },
-        );
-
+        final role = await _auth.currentUserRole();
         if (!mounted) return;
-        Navigator.of(context).pushReplacementNamed('/auth/login');
+        final navigator = Navigator.of(context);
+        if (role == 'player') {
+          navigator.pushReplacementNamed('/player/dashboard');
+        } else if (role == 'trainer') {
+          navigator.pushReplacementNamed('/trainer/dashboard');
+        } else {
+          navigator.pushReplacementNamed('/auth');
+        }
       } else {
         await _auth.register(
           firstName: _firstNameController.text.trim(),

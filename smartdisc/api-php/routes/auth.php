@@ -206,28 +206,6 @@ if ($path === "$prefix/auth/login") {
     json_response(['error' => ['code' => 'INVALID_CREDENTIALS', 'message' => 'Ungültige E-Mail oder Passwort']], 401);
   }
 
-  // Für Trainer: prüfen, ob eine Anfrage existiert und freigegeben wurde
-  if (($user['role'] ?? null) === 'trainer') {
-    $reqStmt = $pdo->prepare("
-      SELECT status
-      FROM trainer_requests
-      WHERE user_id = :user_id
-      ORDER BY created_at DESC
-      LIMIT 1
-    ");
-    $reqStmt->execute([':user_id' => $user['id']]);
-    $request = $reqStmt->fetch();
-
-    if ($request && $request['status'] !== 'approved') {
-      $code = $request['status'] === 'rejected' ? 'TRAINER_REJECTED' : 'TRAINER_NOT_APPROVED';
-      $message = $request['status'] === 'rejected'
-        ? 'Deine Trainer-Anfrage wurde abgelehnt.'
-        : 'Dein Trainer-Konto wurde noch nicht freigegeben.';
-
-      json_response(['error' => ['code' => $code, 'message' => $message]], 403);
-    }
-  }
-
   // Token generieren und speichern
   try {
     $token = create_auth_token($user['id']);
