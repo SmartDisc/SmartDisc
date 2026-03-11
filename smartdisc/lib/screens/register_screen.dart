@@ -264,12 +264,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       ),
                       const SizedBox(height: 20),
                       Row(
-                        children: const [
-                          Expanded(child: Divider(color: AppColors.border)),
-                          SizedBox(width: 12),
+                        children: [
+                          const Expanded(child: Divider(color: AppColors.border)),
+                          const SizedBox(width: 12),
                           Text('or', style: AppFont.caption),
-                          SizedBox(width: 12),
-                          Expanded(child: Divider(color: AppColors.border)),
+                          const SizedBox(width: 12),
+                          const Expanded(child: Divider(color: AppColors.border)),
                         ],
                       ),
                       const SizedBox(height: 20),

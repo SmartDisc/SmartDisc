@@ -8,6 +8,7 @@ import 'ble_test_screen.dart';
 import 'disc_assignments_screen.dart';
 import '../services/auth_service.dart';
 import '../services/disc_service.dart';
+import '../styles/app_colors.dart';
 import '../utils/responsive.dart';
 
 class AppShell extends StatefulWidget {
@@ -307,13 +308,34 @@ class _AppShellState extends State<AppShell> {
           automaticallyImplyLeading: false,
           title: Text(_titles[_selectedIndex]),
           actions: _getAppBarActions(),
+          backgroundColor: AppColors.surface,
+          elevation: 0,
+          scrolledUnderElevation: 1,
+          shadowColor: AppColors.border,
         ),
         body: IndexedStack(index: _selectedIndex, children: _pages),
-        bottomNavigationBar: BottomNavigationBar(
-          currentIndex: _selectedIndex,
-          onTap: _onItemTapped,
-          type: BottomNavigationBarType.fixed,
-          items: _navItems,
+        bottomNavigationBar: Container(
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.06),
+                blurRadius: 12,
+                offset: const Offset(0, -4),
+              ),
+            ],
+          ),
+          child: BottomNavigationBar(
+            currentIndex: _selectedIndex,
+            onTap: _onItemTapped,
+            type: BottomNavigationBarType.fixed,
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            selectedItemColor: AppColors.primary,
+            unselectedItemColor: AppColors.textMuted,
+            selectedLabelStyle: const TextStyle(fontWeight: FontWeight.w600),
+            items: _navItems,
+          ),
         ),
       );
     } else {
@@ -323,21 +345,35 @@ class _AppShellState extends State<AppShell> {
           automaticallyImplyLeading: false,
           title: Text(_titles[_selectedIndex]),
           actions: _getAppBarActions(),
+          backgroundColor: AppColors.surface,
+          elevation: 0,
+          scrolledUnderElevation: 1,
         ),
         body: Row(
           children: [
-            NavigationRail(
-              selectedIndex: _selectedIndex,
-              onDestinationSelected: _onItemTapped,
-              extended: responsive.isLargeDesktop,
-              destinations: _navItems.map((item) {
-                return NavigationRailDestination(
-                  icon: item.icon,
-                  label: Text(item.label ?? ''),
-                );
-              }).toList(),
+            Container(
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                border: Border(
+                  right: BorderSide(color: AppColors.borderLight),
+                ),
+              ),
+              child: NavigationRail(
+                selectedIndex: _selectedIndex,
+                onDestinationSelected: _onItemTapped,
+                extended: responsive.isLargeDesktop,
+                backgroundColor: Colors.transparent,
+                selectedIconTheme: const IconThemeData(color: AppColors.primary, size: 24),
+                unselectedIconTheme: IconThemeData(color: AppColors.textMuted, size: 24),
+                labelType: responsive.isLargeDesktop ? NavigationRailLabelType.none : NavigationRailLabelType.all,
+                destinations: _navItems.map((item) {
+                  return NavigationRailDestination(
+                    icon: item.icon,
+                    label: Text(item.label ?? ''),
+                  );
+                }).toList(),
+              ),
             ),
-            const VerticalDivider(thickness: 1, width: 1),
             Expanded(
               child: IndexedStack(index: _selectedIndex, children: _pages),
             ),

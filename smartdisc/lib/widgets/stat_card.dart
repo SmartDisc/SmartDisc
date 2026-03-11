@@ -3,14 +3,12 @@ import '../styles/app_colors.dart';
 import '../styles/app_font.dart';
 
 class StatCard extends StatelessWidget {
-  final IconData icon;
   final String label;
   final String value;
   final String sublabel;
 
   const StatCard({
     super.key,
-    required this.icon,
     required this.label,
     required this.value,
     this.sublabel = '',
@@ -18,71 +16,59 @@ class StatCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              AppColors.cardGradientStart,
-              AppColors.cardGradientEnd,
-            ],
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        color: AppColors.surface,
+        border: Border.all(color: AppColors.borderLight),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primary.withOpacity(0.06),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
           ),
-        ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            CircleAvatar(
-              radius: 16,
-              backgroundColor: AppColors.primary.withAlpha((0.12 * 255).round()),
-              child: Icon(icon, color: AppColors.primary),
-            ),
-            const SizedBox(height: 10),
             Text(label, style: AppFont.statLabel),
-            const SizedBox(height: 2),
-            // Make the value scale down if there's not enough space instead of overflowing
-              // Render value with nicer typography: show primary line large, optional second line smaller
-              const SizedBox(height: 6),
-              ConstrainedBox(
-                // allow enough room for wrapped text on narrow cards
-                constraints: const BoxConstraints(maxHeight: 140),
-                child: Builder(builder: (ctx) {
-                  final lines = value.split('\n');
-                  final primary = lines.isNotEmpty ? lines[0] : '';
-                  final rest = lines.length > 1 ? lines.sublist(1).join(' ') : '';
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // Primary value (prominent)
+            const SizedBox(height: 6),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 100),
+              child: Builder(builder: (ctx) {
+                final lines = value.split('\n');
+                final primary = lines.isNotEmpty ? lines[0] : '';
+                final rest = lines.length > 1 ? lines.sublist(1).join(' ') : '';
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      primary,
+                      style: AppFont.statValue,
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
+                    ),
+                    if (rest.isNotEmpty) ...[
+                      const SizedBox(height: 2),
                       Text(
-                        primary,
-                        style: AppFont.statValue.copyWith(fontSize: 24),
+                        rest,
+                        style: AppFont.caption.copyWith(fontSize: 12),
                         overflow: TextOverflow.ellipsis,
-                        maxLines: 1,
+                        maxLines: 2,
                       ),
-                      if (rest.isNotEmpty) ...[
-                        const SizedBox(height: 4),
-                        Text(
-                          rest,
-                          style: AppFont.caption.copyWith(fontSize: 12),
-                          overflow: TextOverflow.ellipsis,
-                          maxLines: 2,
-                        ),
-                      ],
                     ],
-                  );
-                }),
-              ),
+                  ],
+                );
+              }),
+            ),
             if (sublabel.isNotEmpty) ...[
               const SizedBox(height: 6),
-              Text(sublabel, style: AppFont.subheadline),
+              Text(sublabel, style: AppFont.caption),
             ],
           ],
         ),

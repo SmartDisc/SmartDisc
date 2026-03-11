@@ -86,7 +86,9 @@ class _LoginScreenState extends State<LoginScreen> {
     return TextFormField(
       controller: _emailController,
       keyboardType: TextInputType.emailAddress,
-      decoration: const InputDecoration(hintText: 'email@domain.com'),
+      decoration: const InputDecoration(
+        hintText: 'email@example.com',
+      ),
       validator: _validateEmail,
     );
   }
@@ -94,7 +96,9 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget _buildPasswordField() {
     return TextFormField(
       controller: _passwordController,
-      decoration: const InputDecoration(hintText: 'Password'),
+      decoration: const InputDecoration(
+        hintText: 'Password',
+      ),
       obscureText: true,
       validator: _validatePassword,
     );
@@ -103,16 +107,14 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget _buildErrorBanner() {
     if (_errorMessage == null) return const SizedBox.shrink();
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.red.shade50,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.red.shade200),
+        color: const Color(0xFFFEF2F2),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFFECACA)),
       ),
       child: Row(
         children: [
-          Icon(Icons.error_outline, color: Colors.red.shade700, size: 20),
-          const SizedBox(width: 8),
           Expanded(
             child: Text(
               _errorMessage!,
@@ -129,11 +131,20 @@ class _LoginScreenState extends State<LoginScreen> {
       width: double.infinity,
       child: ElevatedButton(
         onPressed: _isSubmitting ? null : _submit,
+        style: ElevatedButton.styleFrom(
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
+        ),
         child: _isSubmitting
             ? const SizedBox(
-                width: 18,
-                height: 18,
-                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                width: 22,
+                height: 22,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Colors.white,
+                ),
               )
             : const Text('Continue'),
       ),
@@ -143,11 +154,22 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Log in')),
-      body: SafeArea(
-        child: Container(
-          width: double.infinity,
-          color: AppColors.background,
+      appBar: AppBar(
+        title: const Text('Log in'),
+        backgroundColor: AppColors.surface,
+        elevation: 0,
+        foregroundColor: AppColors.textPrimary,
+      ),
+      body: Container(
+        width: double.infinity,
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [AppColors.background, AppColors.backgroundAlt],
+          ),
+        ),
+        child: SafeArea(
           child: Center(
             child: SingleChildScrollView(
               padding: EdgeInsets.symmetric(
@@ -158,34 +180,59 @@ class _LoginScreenState extends State<LoginScreen> {
                 constraints: BoxConstraints(
                   maxWidth: context.responsive.isDesktop ? 420 : double.infinity,
                 ),
-                child: Form(
-                  key: _formKey,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      const _Header(),
-                      const SizedBox(height: 32),
-                      Text('Log in', style: AppFont.headline),
-                      const SizedBox(height: 28),
-                      _buildEmailField(),
-                      const SizedBox(height: 16),
-                      _buildPasswordField(),
-                      const SizedBox(height: 16),
-                      _buildErrorBanner(),
-                      const SizedBox(height: 24),
-                      _buildPrimaryButton(),
-                      const SizedBox(height: 20),
-                      const _OrDivider(),
-                      const SizedBox(height: 20),
-                      SizedBox(
-                        width: double.infinity,
-                        child: OutlinedButton(
-                          onPressed: () => Navigator.pushNamed(context, '/auth/register'),
-                          child: const Text('Create Account'),
-                        ),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 32),
+                  decoration: BoxDecoration(
+                    color: AppColors.surface,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: AppColors.borderLight),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.06),
+                        blurRadius: 20,
+                        offset: const Offset(0, 8),
                       ),
-                      const SizedBox(height: 4),
                     ],
+                  ),
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const _Header(),
+                        const SizedBox(height: 24),
+                        Text('Welcome back', style: AppFont.headline),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Sign in to continue to SmartDisc',
+                          style: AppFont.body.copyWith(color: AppColors.textMuted),
+                        ),
+                        const SizedBox(height: 28),
+                        _buildEmailField(),
+                        const SizedBox(height: 16),
+                        _buildPasswordField(),
+                        const SizedBox(height: 16),
+                        _buildErrorBanner(),
+                        const SizedBox(height: 24),
+                        _buildPrimaryButton(),
+                        const SizedBox(height: 20),
+                        const _OrDivider(),
+                        const SizedBox(height: 20),
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton(
+                            onPressed: () => Navigator.pushNamed(context, '/auth/register'),
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                            ),
+                            child: const Text('Create account'),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -205,11 +252,12 @@ class _Header extends StatelessWidget {
     return Column(
       children: [
         Container(
-          width: 220,
-          height: 220,
-          decoration: const BoxDecoration(
+          width: 80,
+          height: 80,
+          decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: AppColors.surface,
+            color: AppColors.primary.withOpacity(0.1),
+            border: Border.all(color: AppColors.borderLight),
           ),
           clipBehavior: Clip.antiAlias,
           child: Image.asset(
@@ -217,7 +265,7 @@ class _Header extends StatelessWidget {
             fit: BoxFit.cover,
           ),
         ),
-        const SizedBox(height: 18),
+        const SizedBox(height: 16),
       ],
     );
   }
@@ -229,12 +277,13 @@ class _OrDivider extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Row(
-      children: const [
-        Expanded(child: Divider(color: AppColors.border)),
-        SizedBox(width: 12),
-        Text('or', style: AppFont.caption),
-        SizedBox(width: 12),
-        Expanded(child: Divider(color: AppColors.border)),
+      children: [
+        const Expanded(child: Divider(color: AppColors.border)),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Text('or', style: AppFont.caption),
+        ),
+        const Expanded(child: Divider(color: AppColors.border)),
       ],
     );
   }
