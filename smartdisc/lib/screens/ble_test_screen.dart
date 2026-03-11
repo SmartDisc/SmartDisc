@@ -21,7 +21,8 @@ class _BleTestScreenState extends State<BleTestScreen> {
   final DiscService _discService = DiscService.instance();
 
   BleConnectionState _connectionState = BleConnectionState.disconnected;
-  final List<BleDiscMeasurement> _measurements = [];
+  // Measurements are no longer displayed in the UI; only forwarded to backend.
+  // We keep no local list to avoid confusion – BLE screen is now just for connection.
   final List<String> _errors = [];
   List<String> _foundDeviceNames = [];
   bool _isInitialized = false;
@@ -71,14 +72,10 @@ class _BleTestScreenState extends State<BleTestScreen> {
       });
     });
 
-    // Listen to measurements
+    // Listen to measurements (for potential future use or debugging),
+    // but do not store or render them in the BLE screen.
     _bleService.measurements.listen((measurement) {
-      setState(() {
-        _measurements.insert(0, measurement);
-        if (_measurements.length > 50) {
-          _measurements.removeLast();
-        }
-      });
+      // Intentionally no UI list; measurements are sent directly to backend.
     });
 
     // Listen to errors
@@ -138,7 +135,6 @@ class _BleTestScreenState extends State<BleTestScreen> {
     _bleService.setActiveDiscId(_selectedDiscId);
 
     setState(() {
-      _measurements.clear();
       _errors.clear();
     });
 
@@ -547,191 +543,17 @@ class _BleTestScreenState extends State<BleTestScreen> {
                   ),
                 ),
 
-                // Measurements list
-                Expanded(
-                  child: _measurements.isEmpty
-                      ? Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                _connectionState == BleConnectionState.connected
-                                    ? Icons.hourglass_empty
-                                    : Icons.bluetooth,
-                                size: 64,
-                                color: Colors.grey,
-                              ),
-                              const SizedBox(height: 16),
-                              Text(
-                                _connectionState == BleConnectionState.connected
-                                    ? 'Waiting for measurements...\n(${_measurements.length} received)'
-                                    : 'Connect to ESP32 to receive data',
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  color: Colors.grey,
-                                ),
-                                textAlign: TextAlign.center,
-                              ),
-                            ],
-                          ),
-                        )
-                      : ListView.builder(
-                          itemCount: _measurements.length,
-                          itemBuilder: (context, index) {
-                            final m = _measurements[index];
-                            return Card(
-                              margin: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 6,
-                              ),
-                              elevation: 2,
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  border: Border(
-                                    left: BorderSide(
-                                      color: Colors.blue[400]!,
-                                      width: 4,
-                                    ),
-                                  ),
-                                ),
-                                child: ListTile(
-                                  leading: CircleAvatar(
-                                    backgroundColor: Colors.blue[100],
-                                    child: Text(
-                                      m.scheibeId,
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.blue[700],
-                                      ),
-                                    ),
-                                  ),
-                                  title: Text(
-                                    'Disc #${m.scheibeId}',
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 16,
-                                    ),
-                                  ),
-                                  subtitle: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      const SizedBox(height: 6),
-                                      Row(
-                                        children: [
-                                          Expanded(
-                                            child: Text(
-                                              'Height: ${m.hoehe.toStringAsFixed(3)} m',
-                                              style: const TextStyle(
-                                                fontSize: 13,
-                                              ),
-                                            ),
-                                          ),
-                                          Expanded(
-                                            child: Text(
-                                              'Rotation: ${m.rotation.toStringAsFixed(2)} rps',
-                                              style: const TextStyle(
-                                                fontSize: 13,
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                      if (m.accelerationMax != null) ...[
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          'Acceleration: ${m.accelerationMax!.toStringAsFixed(2)} m/s²',
-                                          style: const TextStyle(
-                                            fontSize: 12,
-                                            color: Colors.orangeAccent,
-                                          ),
-                                        ),
-                                      ],
-                                    ],
-                                  ),
-                                  trailing: Text(
-                                    '#${_measurements.length - index}',
-                                    style: TextStyle(
-                                      color: Colors.grey[500],
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                ),
-
-                // Data stats bar
-                if (_connectionState == BleConnectionState.connected &&
-                    _measurements.isNotEmpty)
-                  Container(
-                    color: Colors.blue[50],
-                    padding: const EdgeInsets.all(12),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: [
-                        Column(
-                          children: [
-                            const Text(
-                              'Measurements',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey,
-                              ),
-                            ),
-                            Text(
-                              _measurements.length.toString(),
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.blue[700],
-                              ),
-                            ),
-                          ],
-                        ),
-                        Column(
-                          children: [
-                            const Text(
-                              'Latest Height',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey,
-                              ),
-                            ),
-                            Text(
-                              '${_measurements.first.hoehe.toStringAsFixed(3)} m',
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.blue[700],
-                              ),
-                            ),
-                          ],
-                        ),
-                        Column(
-                          children: [
-                            const Text(
-                              'Latest Rotation',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey,
-                              ),
-                            ),
-                            Text(
-                              '${_measurements.first.rotation.toStringAsFixed(2)} rps',
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.blue[700],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
+                // Fill remaining space with a simple info area instead of a measurement list
+                const Expanded(
+                  child: Center(
+                    child: Text(
+                      'Connected measurements are forwarded directly to the backend.\n'
+                      'Use the dashboard, history, or analysis screens (or API endpoints) to view data.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 14, color: Colors.grey),
                     ),
                   ),
+                ),
 
                 // Error log (collapsible)
                 if (_errors.isNotEmpty)
