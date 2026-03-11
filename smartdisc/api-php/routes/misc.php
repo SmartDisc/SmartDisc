@@ -1,8 +1,8 @@
 <?php
 
-// GET /api/health
+// GET /api/health - Simple health check (BLE/backend alignment: return only status)
 if ($path === "$prefix/health") {
-  json_response(['status' => 'ok', 'db' => 'up', 'timestamp' => date('c')]);
+  json_response(['status' => 'ok']);
 }
 
 // GET /api/ping - Test endpoint

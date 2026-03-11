@@ -61,10 +61,26 @@ class ApiService {
   }
 
   // ---- READ ----
-  Future<List<Wurf>> getWuerfe({int limit = 20, String? scheibeId}) async {
+  /// GET /api/wurfe with optional filters (scheibe_id, limit, from, to, minHeight, maxHeight, minRotation, maxRotation).
+  Future<List<Wurf>> getWuerfe({
+    int limit = 20,
+    String? scheibeId,
+    String? from,
+    String? to,
+    double? minHeight,
+    double? maxHeight,
+    double? minRotation,
+    double? maxRotation,
+  }) async {
     final headers = await _getAuthHeaders();
     final q = <String, dynamic>{'limit': limit};
     if (scheibeId != null) q['scheibe_id'] = scheibeId;
+    if (from != null) q['from'] = from;
+    if (to != null) q['to'] = to;
+    if (minHeight != null) q['minHeight'] = minHeight;
+    if (maxHeight != null) q['maxHeight'] = maxHeight;
+    if (minRotation != null) q['minRotation'] = minRotation;
+    if (maxRotation != null) q['maxRotation'] = maxRotation;
     final res = await _client.get(_u('/wurfe', q), headers: headers);
     if (res.statusCode != 200) {
       throw Exception('getWuerfe failed: ${res.statusCode}');

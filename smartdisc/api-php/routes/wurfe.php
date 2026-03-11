@@ -1,5 +1,14 @@
 <?php
-// Throw routes
+// Throw routes (wurfe)
+//
+// Data flow: Sensor → HC-12 raw packet → ESP32 ground station parses/converts
+// → BLE JSON (id, height_m, ax_ms2, ay_ms2, az_ms2, gyro_dps) → Flutter app
+// maps to backend payload → POST /api/wurfe → backend stores one row per request.
+//
+// This API accepts ONLY the processed payload from the Flutter app. It does NOT
+// accept raw sensor fields (raw_press, raw_temp, ax_x100, etc.); the ESP32
+// exposes only processed values via BLE. Backend is persistence + query only;
+// no physics conversions.
 
 // List throws (accept both German and English/legacy paths)
 $wurfeListPaths = ["$prefix/wurfe", '/api-php/wurfe', '/api-php/throws'];
@@ -98,11 +107,8 @@ if ((preg_match("#^$prefix/wurfe/([^/]+)$#", $path, $matches)
 if (in_array($path, $wurfeListPaths, true) && $method === 'POST') {
   $input = get_json_input();
 
-  // Normalize incoming types (hardware may send ints/floats)
-  if (isset($input['scheibe_id']) && is_numeric($input['scheibe_id'])) {
-    // Hardware sends numeric disc IDs; keep them as integers
-    $input['scheibe_id'] = (int) $input['scheibe_id'];
-  }
+  // Normalize types only; do not compute physics (Flutter sends processed values).
+  $input['scheibe_id'] = isset($input['scheibe_id']) ? (string) $input['scheibe_id'] : '';
   if (isset($input['rotation']) && is_numeric($input['rotation'])) {
     $input['rotation'] = floatval($input['rotation']);
   }
@@ -112,8 +118,6 @@ if (in_array($path, $wurfeListPaths, true) && $method === 'POST') {
   if (isset($input['acceleration_max']) && is_numeric($input['acceleration_max'])) {
     $input['acceleration_max'] = floatval($input['acceleration_max']);
   }
-  
-  // Accept acceleration components (ESP32 sends X, Y, Z)
   if (isset($input['acceleration_x']) && is_numeric($input['acceleration_x'])) {
     $input['acceleration_x'] = floatval($input['acceleration_x']);
   }
@@ -123,12 +127,11 @@ if (in_array($path, $wurfeListPaths, true) && $method === 'POST') {
   if (isset($input['acceleration_z']) && is_numeric($input['acceleration_z'])) {
     $input['acceleration_z'] = floatval($input['acceleration_z']);
   }
-  
-  // Calculate acceleration_max from components if not provided
+
+  // Optional: compute acceleration_max from components only if not provided (Flutter normally sends it).
   $hasAccelX = isset($input['acceleration_x']) && is_numeric($input['acceleration_x']);
   $hasAccelY = isset($input['acceleration_y']) && is_numeric($input['acceleration_y']);
   $hasAccelZ = isset($input['acceleration_z']) && is_numeric($input['acceleration_z']);
-  
   if (($hasAccelX || $hasAccelY || $hasAccelZ) && !isset($input['acceleration_max'])) {
     $x = $hasAccelX ? $input['acceleration_x'] : 0;
     $y = $hasAccelY ? $input['acceleration_y'] : 0;
