@@ -15,22 +15,18 @@ String _normalizeBaseUrl(String raw) {
 /// - On Android emulator, `localhost` points to the emulator itself. Use `10.0.2.2`
 ///   to reach the host machine.
 /// - On a physical device, you must use a reachable LAN/VPN IP/hostname.
+const String kDefaultApiBaseUrl = 'http://46.225.217.234/api';
+
 String get apiBaseUrl {
   const fromEnv = String.fromEnvironment('API_BASE', defaultValue: '');
-  
-  String url;
+
   if (fromEnv.trim().isNotEmpty) {
-    url = _normalizeBaseUrl(fromEnv);
+    final url = _normalizeBaseUrl(fromEnv);
     print('[ENV] Using API_BASE from environment: $url');
-  } else {
-    // Sensible defaults for local development.
-    if (isAndroid) {
-      url = 'http://10.0.2.2:8000/api';
-    } else {
-      url = 'http://localhost:8000/api';
-    }
-    print('[ENV] Using default API URL: $url (isAndroid: $isAndroid)');
+    return url;
   }
-  
-  return url;
+
+  // Fallback to production backend URL.
+  print('[ENV] Using default API URL: $kDefaultApiBaseUrl (isAndroid: $isAndroid)');
+  return kDefaultApiBaseUrl;
 }
