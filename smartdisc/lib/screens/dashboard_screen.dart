@@ -188,33 +188,34 @@ class DashboardScreenState extends State<DashboardScreen> {
                       _buildHeroHeader(responsive),
                       const SizedBox(height: 20),
 
-                      // 3D disc preview
+                      // 3D disc preview – visible container + lighting so the frisbee stands out
                       LayoutBuilder(builder: (ctx, constraints) {
                         final maxW = constraints.maxWidth;
-                        final computedHeight = math.min(280, maxW * 0.5).toDouble();
+                        final height = math.max(220, math.min(320, maxW * 0.55)).toDouble();
                         return Container(
-                          height: computedHeight,
+                          height: height,
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(20),
+                            color: AppColors.backgroundAlt,
+                            border: Border.all(color: AppColors.borderLight, width: 1),
                             boxShadow: [
                               BoxShadow(
-                                color: AppColors.primary.withOpacity(0.08),
-                                blurRadius: 20,
-                                offset: const Offset(0, 8),
+                                color: AppColors.primary.withOpacity(0.12),
+                                blurRadius: 16,
+                                offset: const Offset(0, 6),
                               ),
                             ],
-                            color: AppColors.surface,
                           ),
                           clipBehavior: Clip.antiAlias,
                           child: const ModelViewer(
                             src: 'assets/models/SmartDisc.glb',
-                            alt: 'Frisbee model',
+                            alt: 'SmartDisc frisbee',
                             ar: false,
                             autoRotate: true,
                             cameraControls: true,
-                            cameraOrbit: '0deg 65deg 105%',
-                            exposure: 1.0,
-                            shadowIntensity: 0.0,
+                            cameraOrbit: '0deg 70deg 85%',
+                            exposure: 1.15,
+                            shadowIntensity: 0.6,
                             disableZoom: false,
                           ),
                         );
