@@ -15,7 +15,7 @@ String _normalizeBaseUrl(String raw) {
 /// - On Android emulator, `localhost` points to the emulator itself. Use `10.0.2.2`
 ///   to reach the host machine.
 /// - On a physical device, you must use a reachable LAN/VPN IP/hostname.
-const String kDefaultApiBaseUrl = 'http://46.225.217.234/api';
+const String kDefaultApiBaseUrl = 'https://app.smartdisc.at/api';
 
 String? _cachedApiBaseUrl;
 
