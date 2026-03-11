@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/ble_disc_service.dart';
+import '../services/disc_service.dart';
 import '../models/ble_disc_measurement.dart';
 
 /// Example screen showing how to use BLE service on Windows
@@ -17,6 +18,7 @@ class BleTestScreen extends StatefulWidget {
 
 class _BleTestScreenState extends State<BleTestScreen> {
   final BleDiscService _bleService = BleDiscService();
+  final DiscService _discService = DiscService.instance();
 
   BleConnectionState _connectionState = BleConnectionState.disconnected;
   final List<BleDiscMeasurement> _measurements = [];
@@ -24,11 +26,29 @@ class _BleTestScreenState extends State<BleTestScreen> {
   List<String> _foundDeviceNames = [];
   bool _isInitialized = false;
   int _savedCount = 0;
+  String? _selectedDiscId;
+  List<Map<String, dynamic>> _availableDiscs = [];
+  VoidCallback? _discsListener;
 
   @override
   void initState() {
     super.initState();
-    _initBle();
+    _init();
+  }
+
+  Future<void> _init() async {
+    // Load discs first so the user can select one before connecting
+    await _discService.init();
+    _syncDiscsFromService();
+
+    // Listen for disc changes so the dropdown updates live without reloads
+    _discsListener = () {
+      if (!mounted) return;
+      _syncDiscsFromService();
+    };
+    _discService.discs.addListener(_discsListener!);
+
+    await _initBle();
   }
 
   Future<void> _initBle() async {
@@ -106,6 +126,17 @@ class _BleTestScreenState extends State<BleTestScreen> {
   }
 
   Future<void> _scanAndConnect() async {
+    if (_selectedDiscId == null || _selectedDiscId!.isEmpty) {
+      _showError(
+        "Please select a disc before connecting.\n"
+        "BLE data will only be accepted for the selected disc ID.",
+      );
+      return;
+    }
+
+    // Tell BLE service which disc ID is currently active
+    _bleService.setActiveDiscId(_selectedDiscId);
+
     setState(() {
       _measurements.clear();
       _errors.clear();
@@ -201,7 +232,32 @@ class _BleTestScreenState extends State<BleTestScreen> {
   @override
   void dispose() {
     _bleService.dispose();
+    if (_discsListener != null) {
+      _discService.discs.removeListener(_discsListener!);
+    }
     super.dispose();
+  }
+
+  /// Sync local disc list and keep current selection if possible
+  void _syncDiscsFromService() {
+    final currentDiscs = List<Map<String, dynamic>>.from(_discService.discs.value);
+    String? newSelected = _selectedDiscId;
+
+    // If no selection yet or selected disc no longer exists, pick the first one if available
+    final ids = currentDiscs.map((d) => d['id'] as String?).whereType<String>().toList();
+    if (ids.isEmpty) {
+      newSelected = null;
+    } else if (newSelected == null || !ids.contains(newSelected)) {
+      newSelected = ids.first;
+    }
+
+    setState(() {
+      _availableDiscs = currentDiscs;
+      _selectedDiscId = newSelected;
+    });
+
+    // Update BLE filter whenever the effective selection changes
+    _bleService.setActiveDiscId(newSelected);
   }
 
   @override
@@ -227,6 +283,56 @@ class _BleTestScreenState extends State<BleTestScreen> {
           )
         : Column(
             children: [
+                // Disc selector (enforces which disc ID is accepted from ESP)
+                if (_availableDiscs.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Active Disc for BLE',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.grey.shade300),
+                          ),
+                          child: DropdownButtonHideUnderline(
+                            child: DropdownButton<String?>(
+                              value: _selectedDiscId,
+                              isExpanded: true,
+                              icon: const Icon(Icons.arrow_drop_down),
+                              items: _availableDiscs.map((disc) {
+                                final id = disc['id'] as String?;
+                                final name = (disc['name'] as String?) ?? id ?? '-';
+                                return DropdownMenuItem<String?>(
+                                  value: id,
+                                  child: Text('$name (ID: $id)'),
+                                );
+                              }).toList(),
+                              onChanged: (value) {
+                                setState(() => _selectedDiscId = value);
+                                _bleService.setActiveDiscId(value);
+                              },
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        const Text(
+                          'BLE data will only be processed if the ESP sends the same disc ID.',
+                          style: TextStyle(fontSize: 11, color: Colors.grey),
+                        ),
+                      ],
+                    ),
+                  ),
                 // Large connection status card
                 Padding(
                   padding: const EdgeInsets.all(16.0),

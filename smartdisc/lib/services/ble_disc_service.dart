@@ -45,6 +45,11 @@ class BleDiscService {
   
   /// Buffer for incomplete messages (CRITICAL for Windows)
   String _messageBuffer = '';
+
+  /// Currently selected/active disc ID in the app.
+  /// When set, only BLE measurements whose `scheibeId` matches this ID
+  /// will be forwarded to the UI and backend.
+  String? _activeDiscId;
   
   /// Batch buffer for measurements (send every 5 seconds)
   final List<BleDiscMeasurement> _measurementBatch = [];
@@ -93,6 +98,19 @@ class BleDiscService {
   
   bool get isConnected => _connectedDevice != null;
   String get connectedDeviceName => _connectedDevice?.platformName ?? 'Unknown';
+
+  /// Set or clear the currently active disc ID.
+  /// Pass `null` to accept measurements from all discs again.
+  void setActiveDiscId(String? discId) {
+    _activeDiscId = discId;
+    _logRaw(
+      'connection',
+      title: 'Active disc changed',
+      message: discId == null
+          ? 'No active disc filter (accepting all IDs)'
+          : 'Now accepting only measurements for disc ID "$discId"',
+    );
+  }
   
   // ==================== Public Methods ====================
   
@@ -487,6 +505,17 @@ class BleDiscService {
     try {
       final json = jsonDecode(message) as Map<String, dynamic>;
       final measurement = BleDiscMeasurement.fromJson(json);
+
+      // If an active disc is set, enforce ID match before doing anything else.
+      if (_activeDiscId != null && measurement.scheibeId != _activeDiscId) {
+        _logRaw(
+          'error',
+          title: 'Discarded measurement (disc ID mismatch)',
+          message:
+              'Active disc: $_activeDiscId, received: ${measurement.scheibeId}',
+        );
+        return;
+      }
       
       if (!_measurementController.isClosed) {
         _measurementController.add(measurement);
