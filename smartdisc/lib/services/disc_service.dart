@@ -15,7 +15,6 @@ class DiscService {
   bool _initialized = false;
 
   Future<void> init() async {
-    if (_initialized) return;
     await _loadFromBackend();
     _initialized = true;
   }

@@ -48,7 +48,20 @@ if (in_array($path, $wurfeListPaths, true) && $method === 'GET') {
     $user = get_user_by_token($token);
   }
   if ($user && ($user['role'] ?? null) === 'player') {
-    $where[] = "EXISTS (SELECT 1 FROM disc_assignments da WHERE da.disc_id = wurfe.scheibe_id AND da.player_id = :current_player_id)";
+    // Spieler sehen nur Würfe von Discs, die ihnen zugeordnet sind.
+    // Dabei kann die scheibe_id in den Würfen entweder der Disc-ID
+    // (z.B. "DISC-06") oder dem im Backend gepflegten Namen entsprechen
+    // (z.B. "1" für eine Disc mit ID "DISC-90" und Name "1").
+    $where[] = "EXISTS (
+      SELECT 1
+      FROM disc_assignments da
+      JOIN scheiben s ON s.id = da.disc_id
+      WHERE da.player_id = :current_player_id
+        AND (
+          da.disc_id = wurfe.scheibe_id
+          OR s.name = wurfe.scheibe_id
+        )
+    )";
     $params[':current_player_id'] = $user['id'];
   }
 
