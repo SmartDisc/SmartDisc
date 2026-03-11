@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
-import 'dart:math' as math;
 import 'dart:async';
-import 'package:model_viewer_plus/model_viewer_plus.dart';
 import 'package:intl/intl.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import '../services/api_service.dart';
@@ -186,41 +184,6 @@ class DashboardScreenState extends State<DashboardScreen> {
                     children: [
                       // Hero header
                       _buildHeroHeader(responsive),
-                      const SizedBox(height: 20),
-
-                      // 3D disc preview – visible container + lighting so the frisbee stands out
-                      LayoutBuilder(builder: (ctx, constraints) {
-                        final maxW = constraints.maxWidth;
-                        final height = math.max(220, math.min(320, maxW * 0.55)).toDouble();
-                        return Container(
-                          height: height,
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(20),
-                            color: AppColors.backgroundAlt,
-                            border: Border.all(color: AppColors.borderLight, width: 1),
-                            boxShadow: [
-                              BoxShadow(
-                                color: AppColors.primary.withOpacity(0.12),
-                                blurRadius: 16,
-                                offset: const Offset(0, 6),
-                              ),
-                            ],
-                          ),
-                          clipBehavior: Clip.antiAlias,
-                          child: const ModelViewer(
-                            src: 'assets/models/SmartDisc.glb',
-                            alt: 'SmartDisc frisbee',
-                            ar: false,
-                            autoRotate: true,
-                            cameraControls: true,
-                            cameraOrbit: '0deg 70deg 85%',
-                            exposure: 1.15,
-                            shadowIntensity: 0.6,
-                            disableZoom: false,
-                          ),
-                        );
-                      }),
-
                       const SizedBox(height: 20),
 
                       // Disc selector

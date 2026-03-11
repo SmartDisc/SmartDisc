@@ -331,12 +331,6 @@ class AnalysisScreenState extends State<AnalysisScreen> {
                     onChanged: (v) => setModalState(() => format = v ?? 'csv'),
                     title: const Text('CSV'),
                   ),
-                  RadioListTile<String>(
-                    value: 'pdf',
-                    groupValue: format,
-                    onChanged: null,
-                    title: const Text('PDF (coming soon)'),
-                  ),
                   const SizedBox(height: 8),
                   Text('Scope', style: AppFont.subheadline),
                   const SizedBox(height: 8),

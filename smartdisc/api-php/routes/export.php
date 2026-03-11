@@ -35,8 +35,9 @@ if ($path === "$prefix/exports/throws" && $method === 'GET') {
   }
 
   if (!empty($_GET['discId'])) {
-    $where[] = 'scheibe_id = :scheibe_id';
-    $params[':scheibe_id'] = (string) $_GET['discId'];
+    $discIdParam = (string) $_GET['discId'];
+    $where[] = "(scheibe_id = :scheibe_id OR EXISTS (SELECT 1 FROM scheiben s WHERE s.id = :scheibe_id AND s.name = wurfe.scheibe_id))";
+    $params[':scheibe_id'] = $discIdParam;
   }
 
   if (isset($_GET['minHeight']) && is_numeric($_GET['minHeight'])) {
@@ -68,6 +69,7 @@ if ($path === "$prefix/exports/throws" && $method === 'GET') {
 
   header('Content-Type: text/csv; charset=utf-8');
   header('Content-Disposition: attachment; filename="smartdisc_throws.csv"');
+  echo "\xEF\xBB\xBF"; // UTF-8 BOM so Excel opens the file correctly
   $out = fopen('php://output', 'w');
   fputcsv($out, ['id', 'scheibe_id', 'player_id', 'rotation', 'hoehe', 'acceleration_max', 'erstellt_am'], ';');
 
@@ -91,6 +93,7 @@ if ($path === "$prefix/export.csv" && $method === 'GET') {
   }
   header('Content-Type: text/csv; charset=utf-8');
   header('Content-Disposition: attachment; filename="smartdisc_throws.csv"');
+  echo "\xEF\xBB\xBF"; // UTF-8 BOM so Excel opens the file correctly
   $out = fopen('php://output', 'w');
   fputcsv($out, ['id', 'scheibe_id', 'player_id', 'rotation', 'hoehe', 'acceleration_max', 'erstellt_am'], ';');
   if (($user['role'] ?? null) === 'trainer') {
