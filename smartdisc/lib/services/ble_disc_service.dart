@@ -4,6 +4,18 @@ import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import '../models/ble_disc_measurement.dart';
 import 'api_service.dart';
 
+class RawDataLog {
+  final DateTime timestamp;
+  final String type;
+  final String? title;
+  final String? message;
+
+  RawDataLog({required this.timestamp, required this.type, this.title, this.message});
+
+  factory RawDataLog.now({required String type, String? title, String? message}) =>
+      RawDataLog(timestamp: DateTime.now(), type: type, title: title, message: message);
+}
+
 /// BLE Service for Windows Desktop
 /// Handles ESP32 connection with Windows-specific quirks:
 /// - Service UUID filtering (Windows may report empty device names)
@@ -34,6 +46,12 @@ class BleDiscService {
   /// Buffer for incomplete messages (CRITICAL for Windows)
   String _messageBuffer = '';
   
+  /// Batch buffer for measurements (send every 5 seconds)
+  final List<BleDiscMeasurement> _measurementBatch = [];
+  
+  /// Timer for batch sending
+  Timer? _batchTimer;
+  
   /// Track saved measurements count
   int _savedCount = 0;
   
@@ -60,6 +78,10 @@ class BleDiscService {
   final StreamController<int> _savedCountController =
       StreamController<int>.broadcast();
   
+  /// Stream controller for raw data logs (debug)
+  final StreamController<RawDataLog> _rawLogController =
+      StreamController<RawDataLog>.broadcast();
+  
   // ==================== Public Streams ====================
   
   Stream<BleDiscMeasurement> get measurements => _measurementController.stream;
@@ -67,6 +89,7 @@ class BleDiscService {
   Stream<String> get errors => _errorController.stream;
   Stream<List<BluetoothDevice>> get foundDevices => _foundDevicesController.stream;
   Stream<int> get savedCount => _savedCountController.stream;
+  Stream<RawDataLog> get rawLogs => _rawLogController.stream;
   
   bool get isConnected => _connectedDevice != null;
   String get connectedDeviceName => _connectedDevice?.platformName ?? 'Unknown';
@@ -115,10 +138,10 @@ class BleDiscService {
       final subscription = FlutterBluePlus.scanResults.listen((results) {
         for (var result in results) {
           // Log all devices for debugging
-          // ignore: avoid_print
-          print("Scanned device: ${result.device.platformName} (${result.device.remoteId})");
-          // ignore: avoid_print
-          print("  Services: ${result.advertisementData.serviceUuids}");
+          _logRaw('connection', 
+            title: 'Device scanned',
+            message: '${result.device.platformName} (${result.device.remoteId})\n  Services: ${result.advertisementData.serviceUuids}'
+          );
           
           // Track all devices
           if (!allDevices.any((d) => d.remoteId == result.device.remoteId)) {
@@ -132,8 +155,10 @@ class BleDiscService {
                        deviceName.contains("bodenstation");
           
           if (isESP && !_foundDevices.any((d) => d.remoteId == result.device.remoteId)) {
-            // ignore: avoid_print
-            print("✓ ESP device found: ${result.device.platformName}");
+            _logRaw('connection', 
+              title: '✓ ESP device found',
+              message: result.device.platformName
+            );
             _foundDevices.add(result.device);
             _foundDevicesController.add(List.from(_foundDevices));
           }
@@ -161,8 +186,10 @@ class BleDiscService {
         return false;
       }
       
-      // ignore: avoid_print
-      print("Found ${_foundDevices.length} ESP device(s)");
+      _logRaw('connection', 
+        title: 'Scan complete',
+        message: 'Found ${_foundDevices.length} ESP device(s)'
+      );
       return true;
     } catch (e) {
       _errorController.add("Scan failed: $e");
@@ -287,25 +314,32 @@ class BleDiscService {
         // Wait a bit to ensure notifications are enabled
         await Future.delayed(const Duration(milliseconds: 300));
         
-        // ignore: avoid_print
-        print("Notifications enabled on characteristic $characteristicUuid");
+        _logRaw('connection', 
+          title: 'Notifications enabled',
+          message: 'Characteristic: $characteristicUuid'
+        );
       } catch (e) {
         throw Exception("Failed to enable notifications: $e");
       }
       
       // Subscribe to notifications - use onValueReceived for flutter_blue_plus
-      // ignore: avoid_print
-      print("Setting up notification listener...");
+      _logRaw('connection', title: 'Setting up notification listener');
       _notificationSubscription = notifyChar.onValueReceived.listen(
         (value) {
-          // ignore: avoid_print
-          print("Raw notification received: ${value.length} bytes");
+          _logRaw('raw', 
+            title: 'Raw BLE packet',
+            message: 'Received ${value.length} bytes: ${utf8.decode(value)}'
+          );
           _handleNotification(value);
         },
         onError: (error) {
-          _errorController.add("Notification error: $error");
-          // ignore: avoid_print
-          print("Notification stream error: $error");
+          if (!_errorController.isClosed) {
+            _errorController.add("Notification error: $error");
+          }
+          _logRaw('error', 
+            title: 'Notification stream error',
+            message: error.toString()
+          );
         },
       );
       
@@ -317,8 +351,13 @@ class BleDiscService {
       });
       
       _connectionStateController.add(BleConnectionState.connected);
-      // ignore: avoid_print
-      print("Notifications enabled");
+      _logRaw('connection', 
+        title: '✓ Connected successfully',
+        message: 'Device: ${device.platformName}'
+      );
+      
+      // Start batch timer (send measurements every 5 seconds)
+      _startBatchTimer();
       
       return true;
     } catch (e) {
@@ -336,8 +375,10 @@ class BleDiscService {
     
     // Auto-connect if only one ESP device found
     if (_foundDevices.length == 1) {
-      // ignore: avoid_print
-      print("Auto-connecting to ${_foundDevices[0].platformName}");
+      _logRaw('connection', 
+        title: 'Auto-connecting',
+        message: _foundDevices[0].platformName
+      );
       return await connectToDevice(_foundDevices[0]);
     }
     
@@ -360,6 +401,10 @@ class BleDiscService {
   /// Disconnect from device
   Future<void> disconnect() async {
     try {
+      // Stop batch timer and send any remaining measurements
+      _stopBatchTimer();
+      await _sendBatch();
+      
       await _notificationSubscription?.cancel();
       _notificationSubscription = null;
       
@@ -371,9 +416,13 @@ class BleDiscService {
       _messageBuffer = ''; // Clear buffer
       _savedCount = 0; // Reset counter
       
-      _connectionStateController.add(BleConnectionState.disconnected);
+      if (!_connectionStateController.isClosed) {
+        _connectionStateController.add(BleConnectionState.disconnected);
+      }
     } catch (e) {
-      _errorController.add("Disconnect error: $e");
+      if (!_errorController.isClosed) {
+        _errorController.add("Disconnect error: $e");
+      }
     }
   }
   
@@ -385,9 +434,21 @@ class BleDiscService {
     _errorController.close();
     _foundDevicesController.close();
     _savedCountController.close();
+    _rawLogController.close();
   }
   
   // ==================== Private Methods ====================
+  
+  /// Log raw data for debugging
+  void _logRaw(String type, {String? title, String? message}) {
+    if (!_rawLogController.isClosed) {
+      _rawLogController.add(RawDataLog.now(
+        type: type,
+        title: title,
+        message: message,
+      ));
+    }
+  }
   
   /// Handle incoming notification with newline-based framing
   /// CRITICAL: Windows/Android can fragment notifications
@@ -396,17 +457,11 @@ class BleDiscService {
       // Decode bytes to UTF-8 text
       final textChunk = utf8.decode(value);
       
-      // ignore: avoid_print
-      print("Decoded text: '$textChunk'");
-      
       // Append to buffer
       _messageBuffer += textChunk;
       
       // Process complete messages (split by newline)
       final lines = _messageBuffer.split('\n');
-      
-      // ignore: avoid_print
-      print("Buffer has ${lines.length} lines, buffer='$_messageBuffer'");
       
       // Last element might be incomplete, keep it in buffer
       _messageBuffer = lines.last;
@@ -415,72 +470,142 @@ class BleDiscService {
       for (int i = 0; i < lines.length - 1; i++) {
         final line = lines[i].trim();
         if (line.isNotEmpty) {
-          // ignore: avoid_print
-          print("Processing line: '$line'");
           _parseMessage(line);
         }
       }
     } catch (e) {
       _errorController.add("Notification decode error: $e");
-      // ignore: avoid_print
-      print("Decode error: $e");
+      _logRaw('error', 
+        title: 'Decode error',
+        message: e.toString()
+      );
     }
   }
   
-  /// Parse JSON message and save to database
+  /// Parse JSON message and add to batch
   void _parseMessage(String message) {
     try {
-      // ignore: avoid_print
-      print("Attempting to parse JSON: $message");
-      
       final json = jsonDecode(message) as Map<String, dynamic>;
       final measurement = BleDiscMeasurement.fromJson(json);
       
-      // ignore: avoid_print
-      print("✓ Parsed successfully: $measurement");
-      _measurementController.add(measurement);
+      if (!_measurementController.isClosed) {
+        _measurementController.add(measurement);
+      }
       
-      // Save to database (async, don't block)
-      _saveToDatabase(measurement);
+      // Log successful parse
+      _logRaw('success', 
+        title: '✓ Measurement parsed',
+        message: 'Disc #${measurement.scheibeId}: Rot=${measurement.rotation.toStringAsFixed(2)} rps, H=${measurement.hoehe.toStringAsFixed(2)} m'
+      );
+      
+      // Add to batch (will be sent every 5 seconds)
+      _measurementBatch.add(measurement);
     } catch (e) {
       final errorMsg = "JSON parse error: $e | Raw: $message";
-      _errorController.add(errorMsg);
-      // ignore: avoid_print
-      print(errorMsg);
+      if (!_errorController.isClosed) {
+        _errorController.add(errorMsg);
+      }
+      _logRaw('error', 
+        title: 'JSON parse failed',
+        message: 'Error: $e\nRaw: $message'
+      );
     }
   }
   
-  /// Save measurement to database
-  Future<void> _saveToDatabase(BleDiscMeasurement measurement) async {
-    try {
-      await _apiService.createThrow(
-        scheibeId: measurement.scheibeId,
-        rotation: measurement.rotation,
-        height: measurement.hoehe,
-        accelerationMax: measurement.accelerationMax ?? 0.0,
-      );
-      
-      _savedCount++;
+  /// Start batch timer (send measurements every 5 seconds)
+  void _startBatchTimer() {
+    _batchTimer?.cancel();
+    _batchTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
+      _sendBatch();
+    });
+    _logRaw('connection', 
+      title: 'Batch timer started',
+      message: 'Sending measurements every 5 seconds'
+    );
+  }
+  
+  /// Stop batch timer
+  void _stopBatchTimer() {
+    _batchTimer?.cancel();
+    _batchTimer = null;
+    _logRaw('connection', title: 'Batch timer stopped');
+  }
+  
+  /// Send accumulated measurements to backend
+  Future<void> _sendBatch() async {
+    if (_measurementBatch.isEmpty) return;
+    
+    // Copy batch and clear immediately to avoid blocking new measurements
+    final batch = List<BleDiscMeasurement>.from(_measurementBatch);
+    _measurementBatch.clear();
+    
+    _logRaw('connection', 
+      title: 'Sending batch',
+      message: '${batch.length} measurements to backend'
+    );
+    
+    int successCount = 0;
+    int failCount = 0;
+    
+    // Send each measurement
+    for (final measurement in batch) {
+      try {
+        await _apiService.createThrow(
+          scheibeId: measurement.scheibeId,
+          rotation: measurement.rotation,
+          height: measurement.hoehe,
+          accelerationX: measurement.accelerationX,
+          accelerationY: measurement.accelerationY,
+          accelerationZ: measurement.accelerationZ,
+          accelerationMax: measurement.accelerationMax,
+        );
+        
+        successCount++;
+        _savedCount++;
+      } catch (e) {
+        failCount++;
+        if (!_errorController.isClosed) {
+          _errorController.add("Failed to save throw: $e");
+        }
+        _logRaw('error', 
+          title: 'Save failed',
+          message: e.toString()
+        );
+      }
+    }
+    
+    // Update saved count
+    if (!_savedCountController.isClosed) {
       _savedCountController.add(_savedCount);
-      
-      // ignore: avoid_print
-      print("Saved to database: Throw #$_savedCount");
-    } catch (e) {
-      _errorController.add("Failed to save throw to database: $e");
+    }
+    
+    _logRaw('success', 
+      title: 'Batch complete',
+      message: '$successCount saved, $failCount failed (Total: $_savedCount)'
+    );
+    
+    if (successCount > 0 && !_errorController.isClosed) {
+      _errorController.add("✓ Saved $successCount throws to backend");
     }
   }
   
   /// Handle disconnect
   void _handleDisconnect() {
-    // ignore: avoid_print
-    print("Device disconnected");
+    _logRaw('connection', 
+      title: 'Device disconnected',
+      message: 'Connection lost'
+    );
     _connectedDevice = null;
     _notificationSubscription?.cancel();
     _notificationSubscription = null;
     _messageBuffer = ''; // Clear buffer
     
-    _connectionStateController.add(BleConnectionState.disconnected);
-    _errorController.add("Device disconnected. Rescan to reconnect.");
+    if (!_connectionStateController.isClosed) {
+      _connectionStateController.add(BleConnectionState.disconnected);
+    }
+    if (!_errorController.isClosed) {
+      _errorController.add("Device disconnected. Rescan to reconnect.");
+    }
   }
 }
 

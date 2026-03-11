@@ -18,7 +18,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final TextEditingController _passwordConfirmController = TextEditingController();
-  String _selectedRole = 'player';
   bool _isSubmitting = false;
   String? _errorMessage;
   final AuthService _auth = AuthService();
@@ -40,60 +39,24 @@ class _RegisterScreenState extends State<RegisterScreen> {
       _errorMessage = null;
     });
     try {
-      if (_selectedRole == 'trainer') {
-        await _auth.registerTrainerRequest(
-          firstName: _firstNameController.text.trim(),
-          lastName: _lastNameController.text.trim(),
-          email: _emailController.text.trim(),
-          password: _passwordController.text,
-          passwordConfirm: _passwordConfirmController.text,
-        );
-        if (!mounted) return;
-
-        await showDialog<void>(
-          context: context,
-          barrierDismissible: false,
-          builder: (context) {
-            return AlertDialog(
-              title: const Text('Trainer-Anfrage gesendet'),
-              content: const Text(
-                'Deine Registrierung als Trainer/Coach wurde übermittelt.\n\n'
-                'Die Verantwortlichen (9040@htl.rennweg.at und 1054@htl.rennweg.at) '
-                'erhalten eine E-Mail und können deine Anfrage freigeben oder ablehnen. '
-                'Du wirst informiert, sobald deine Registrierung bestätigt wurde.',
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('OK'),
-                ),
-              ],
-            );
-          },
-        );
-
-        if (!mounted) return;
-        Navigator.of(context).pushReplacementNamed('/auth/login');
+      await _auth.register(
+        firstName: _firstNameController.text.trim(),
+        lastName: _lastNameController.text.trim(),
+        email: _emailController.text.trim(),
+        password: _passwordController.text,
+        passwordConfirm: _passwordConfirmController.text,
+        role: 'player',
+      );
+      if (!mounted) return;
+      final role = await _auth.currentUserRole();
+      if (!mounted) return;
+      final navigator = Navigator.of(context);
+      if (role == 'player') {
+        navigator.pushReplacementNamed('/player/dashboard');
+      } else if (role == 'trainer') {
+        navigator.pushReplacementNamed('/trainer/dashboard');
       } else {
-        await _auth.register(
-          firstName: _firstNameController.text.trim(),
-          lastName: _lastNameController.text.trim(),
-          email: _emailController.text.trim(),
-          password: _passwordController.text,
-          passwordConfirm: _passwordConfirmController.text,
-          role: _selectedRole,
-        );
-        if (!mounted) return;
-        final role = await _auth.currentUserRole();
-        if (!mounted) return;
-        final navigator = Navigator.of(context);
-        if (role == 'player') {
-          navigator.pushReplacementNamed('/player/dashboard');
-        } else if (role == 'trainer') {
-          navigator.pushReplacementNamed('/trainer/dashboard');
-        } else {
-          navigator.pushReplacementNamed('/auth');
-        }
+        navigator.pushReplacementNamed('/auth');
       }
     } catch (e) {
       if (!context.mounted) return;
@@ -221,22 +184,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             return 'Passwords do not match';
                           }
                           return null;
-                        },
-                      ),
-                      const SizedBox(height: 16),
-                      DropdownButtonFormField<String>(
-                        initialValue: _selectedRole,
-                        decoration: const InputDecoration(
-                          labelText: 'Role',
-                        ),
-                        items: const [
-                          DropdownMenuItem(value: 'player', child: Text('Player')),
-                          DropdownMenuItem(value: 'trainer', child: Text('Coach')),
-                        ],
-                        onChanged: (value) {
-                          if (value != null) {
-                            setState(() => _selectedRole = value);
-                          }
                         },
                       ),
                       if (_errorMessage != null) ...[

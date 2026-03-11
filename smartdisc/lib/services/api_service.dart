@@ -103,7 +103,10 @@ class ApiService {
     String? playerId,
     required double rotation,
     required double height,
-    required double accelerationMax,
+    double? accelerationX,
+    double? accelerationY,
+    double? accelerationZ,
+    double? accelerationMax,
   }) async {
     final headers = await _getAuthHeaders();
     final payload = {
@@ -111,14 +114,17 @@ class ApiService {
       if (playerId != null) 'player_id': playerId,
       'rotation': rotation,
       'hoehe': height,
-      'acceleration_max': accelerationMax,
+      if (accelerationX != null) 'acceleration_x': accelerationX,
+      if (accelerationY != null) 'acceleration_y': accelerationY,
+      if (accelerationZ != null) 'acceleration_z': accelerationZ,
+      if (accelerationMax != null) 'acceleration_max': accelerationMax,
     };
     final res = await _client.post(
       _u('/wurfe'),
       headers: headers,
       body: jsonEncode(payload),
     );
-    if (res.statusCode != 201) {
+    if (res.statusCode != 201 && res.statusCode != 200) {
       final errorBody = jsonDecode(res.body) as Map<String, dynamic>;
       final errorMsg = errorBody['error']?['message'] ?? 'Unknown error';
       throw Exception('createThrow failed: ${res.statusCode} - $errorMsg');
@@ -127,6 +133,7 @@ class ApiService {
     return {
       'id': response['id'] as String,
       'is_new_record': response['is_new_record'] ?? false,
+      'is_duplicate': response['is_duplicate'] ?? false,
       'record_type': response['record_type'] as String?,
     };
   }

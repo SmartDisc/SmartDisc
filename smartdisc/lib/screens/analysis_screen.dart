@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:io';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
+import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:open_filex/open_filex.dart';
@@ -43,8 +44,10 @@ class AnalysisScreenState extends State<AnalysisScreen> {
 
   Future<void> _initDiscs() async {
     await _discService.init();
-    // Listen for disc changes and reload data
-    _discService.discs.addListener(_onDiscsChanged);
+    if (mounted) {
+      // Listen for disc changes and reload data
+      _discService.discs.addListener(_onDiscsChanged);
+    }
   }
 
   void _onDiscsChanged() {
@@ -63,11 +66,17 @@ class AnalysisScreenState extends State<AnalysisScreen> {
   Future<void> _loadWurfe() async {
     setState(() => _isLoading = true);
     try {
-      final wurfe = await _apiService.getWuerfe(limit: 100);
+      final wurfe = await _apiService.getWuerfe(); // No limit - get all throws
       // Sort by timestamp (oldest first for graph)
       wurfe.sort((a, b) {
-        final aTime = a.erstelltAm != null ? DateTime.parse(a.erstelltAm!) : DateTime(1970);
-        final bTime = b.erstelltAm != null ? DateTime.parse(b.erstelltAm!) : DateTime(1970);
+        DateTime aTime = DateTime(1970);
+        DateTime bTime = DateTime(1970);
+        try {
+          if (a.erstelltAm != null) aTime = DateTime.parse(a.erstelltAm!);
+        } catch (_) {}
+        try {
+          if (b.erstelltAm != null) bTime = DateTime.parse(b.erstelltAm!);
+        } catch (_) {}
         return aTime.compareTo(bTime);
       });
       setState(() {
@@ -116,20 +125,6 @@ class AnalysisScreenState extends State<AnalysisScreen> {
       case YAxisMetric.acceleration:
         return wurf.accelerationMax;
     }
-  }
-
-  DateTime? _getFirstThrowTime() {
-    if (_allWurfe.isEmpty) return null;
-    DateTime? firstTime;
-    for (final wurf in _allWurfe) {
-      if (wurf.erstelltAm != null) {
-        final time = DateTime.parse(wurf.erstelltAm!);
-        if (firstTime == null || time.isBefore(firstTime)) {
-          firstTime = time;
-        }
-      }
-    }
-    return firstTime;
   }
 
   Widget _buildFilterRow(Responsive responsive) {
@@ -387,20 +382,9 @@ class AnalysisScreenState extends State<AnalysisScreen> {
     final timestamp = DateFormat('yyyyMMdd_HHmmss').format(DateTime.now());
     final filename = 'smartdisc_throws_$timestamp.$format';
     
-    // Get the appropriate directory for the platform
-    final Directory directory;
-    if (Platform.isAndroid) {
-      // On Android, use external storage or app documents directory
-      directory = await getApplicationDocumentsDirectory();
-    } else if (Platform.isWindows) {
-      // On Windows, use a fixed path
-      directory = Directory('C:/SmartDiscApp/smartdisc/exports');
-    } else {
-      // For other platforms, use documents directory
-      directory = await getApplicationDocumentsDirectory();
-    }
-    
-    final file = File('${directory.path}/$filename');
+    // Get the appropriate directory for all platforms
+    final directory = await getApplicationDocumentsDirectory();
+    final file = File(p.join(directory.path, filename));
     
     // Create parent directory if needed
     await file.parent.create(recursive: true);
@@ -437,16 +421,11 @@ class AnalysisScreenState extends State<AnalysisScreen> {
     final spots = <FlSpot>[];
     for (int i = 0; i < _wurfe.length; i++) {
       final yValue = _getMetricValue(_wurfe[i], _selectedMetric);
-      if (yValue != null) {
+      if (yValue != null && yValue.isFinite) {
         spots.add(FlSpot(i.toDouble(), yValue));
       }
     }
     return spots;
-  }
-
-  String _formatXAxisLabel(double value) {
-    // Show throw number (index)
-    return 'T${(value + 1).toInt()}';
   }
 
   List<Map<String, String>> _getAvailableDiscs() {
@@ -611,14 +590,46 @@ class AnalysisScreenState extends State<AnalysisScreen> {
                                         );
                                       }
                                       
+                                      // Validate axis configuration
+                                      final minY = _getMinY();
+                                      final maxY = _getMaxY();
+                                      final maxX = _getMaxX();
+                                      
+                                      // Safety check: ensure valid axis bounds
+                                      if (!minY.isFinite || !maxY.isFinite || !maxX.isFinite || 
+                                          minY >= maxY || maxX < 0) {
+                                        return Center(
+                                          child: Column(
+                                            mainAxisAlignment: MainAxisAlignment.center,
+                                            children: [
+                                              Icon(
+                                                Icons.error_outline,
+                                                size: 48,
+                                                color: AppColors.textMuted,
+                                              ),
+                                              const SizedBox(height: 12),
+                                              Text(
+                                                'Unable to display chart',
+                                                style: AppFont.body,
+                                                textAlign: TextAlign.center,
+                                              ),
+                                              const SizedBox(height: 4),
+                                              Text(
+                                                'Invalid data range or configuration',
+                                                style: AppFont.caption,
+                                                textAlign: TextAlign.center,
+                                              ),
+                                            ],
+                                          ),
+                                        );
+                                      }
+                                      
                                       // Calculate chart width based on data points
                                       // Show max 30 throws in viewport, ~24px per throw
                                       final double pointWidth = 24.0;
-                                      final double minVisiblePoints = 30.0;
-                                      final double chartWidth = (_wurfe.length * pointWidth).clamp(
-                                        MediaQuery.of(context).size.width - 120, // Min width (fill available space)
-                                        _wurfe.length * pointWidth, // Max width (scrollable)
-                                      );
+                                      final double minWidth = MediaQuery.of(context).size.width - 120;
+                                      final double dataWidth = _wurfe.length * pointWidth;
+                                      final double chartWidth = dataWidth < minWidth ? minWidth : dataWidth;
                                       
                                       return SingleChildScrollView(
                                         scrollDirection: Axis.horizontal,
@@ -630,8 +641,6 @@ class AnalysisScreenState extends State<AnalysisScreen> {
                                               gridData: FlGridData(
                                                 show: true,
                                                 drawVerticalLine: true,
-                                                horizontalInterval: _getYAxisInterval(),
-                                                verticalInterval: _getXAxisIntervalForScroll(),
                                                 getDrawingHorizontalLine: (value) {
                                                   return FlLine(
                                                     color: AppColors.border.withOpacity(0.3),
@@ -659,10 +668,13 @@ class AnalysisScreenState extends State<AnalysisScreen> {
                                                   sideTitles: SideTitles(
                                                     showTitles: true,
                                                     reservedSize: 32,
-                                                    interval: _getXAxisIntervalForScroll(),
                                                     getTitlesWidget: (value, meta) {
-                                                      // Show labels at intervals
-                                                      if (value % _getXAxisIntervalForScroll() != 0) {
+                                                      if (!value.isFinite) {
+                                                        return const SizedBox.shrink();
+                                                      }
+                                                      // Show every few labels based on data size
+                                                      final interval = _getXAxisIntervalForScroll();
+                                                      if (value % interval != 0 && value != 0) {
                                                         return const SizedBox.shrink();
                                                       }
                                                       return Padding(
@@ -682,8 +694,10 @@ class AnalysisScreenState extends State<AnalysisScreen> {
                                                   sideTitles: SideTitles(
                                                     showTitles: true,
                                                     reservedSize: 48,
-                                                    interval: _getYAxisInterval(),
                                                     getTitlesWidget: (value, meta) {
+                                                      if (!value.isFinite) {
+                                                        return const SizedBox.shrink();
+                                                      }
                                                       return Padding(
                                                         padding: const EdgeInsets.only(right: 8),
                                                         child: Text(
@@ -703,9 +717,9 @@ class AnalysisScreenState extends State<AnalysisScreen> {
                                                 show: false,
                                               ),
                                               minX: 0,
-                                              maxX: _getMaxX().clamp(0.0, double.infinity),
-                                              minY: _getMinY(),
-                                              maxY: _getMaxY(),
+                                              maxX: maxX,
+                                              minY: minY,
+                                              maxY: maxY,
                                               lineTouchData: LineTouchData(
                                                 enabled: true,
                                                 touchTooltipData: LineTouchTooltipData(
@@ -718,7 +732,7 @@ class AnalysisScreenState extends State<AnalysisScreen> {
                                                   getTooltipItems: (touchedSpots) {
                                                     return touchedSpots.map((spot) {
                                                       return LineTooltipItem(
-                                                        'Throw ${(spot.x + 1).toInt()}\\n${spot.y.toStringAsFixed(2)} ${_getMetricUnit(_selectedMetric)}',
+                                                        'Throw ${(spot.x + 1).toInt()}\n${spot.y.toStringAsFixed(2)} ${_getMetricUnit(_selectedMetric)}',
                                                         const TextStyle(
                                                           color: Colors.white,
                                                           fontSize: 12,
@@ -877,42 +891,12 @@ class AnalysisScreenState extends State<AnalysisScreen> {
     );
   }
 
-  double _getYAxisInterval() {
-    final values = _wurfe
-        .map((w) => _getMetricValue(w, _selectedMetric))
-        .whereType<double>()
-        .toList();
-    if (values.isEmpty) return 1.0;
-    final range = values.reduce((a, b) => a > b ? a : b) -
-        values.reduce((a, b) => a < b ? a : b);
-    if (range == 0) return 1.0;
-    
-    // Calculate a nice interval (fewer grid lines for cleaner look)
-    final rawInterval = range / 4; // 4 intervals instead of 5
-    
-    // Round to nice numbers
-    if (rawInterval >= 10) {
-      return (rawInterval / 10).ceil() * 10.0;
-    } else if (rawInterval >= 1) {
-      return rawInterval.ceil().toDouble();
-    } else {
-      return (rawInterval * 10).ceil() / 10;
-    }
-  }
-
-  double _getXAxisInterval() {
-    // Show fewer labels for less clutter
-    if (_wurfe.length <= 5) return 1.0;
-    if (_wurfe.length <= 10) return 2.0;
-    if (_wurfe.length <= 20) return 5.0;
-    if (_wurfe.length <= 50) return 10.0;
-    return 20.0;
-  }
-
   double _getXAxisIntervalForScroll() {
     // For horizontal scroll, show every 5th throw for clean spacing
-    if (_wurfe.length <= 10) return 2.0;
-    if (_wurfe.length <= 30) return 5.0;
+    final length = _wurfe.length;
+    if (length <= 1) return 1.0;
+    if (length <= 10) return 2.0;
+    if (length <= 30) return 5.0;
     return 10.0;
   }
 
@@ -921,54 +905,59 @@ class AnalysisScreenState extends State<AnalysisScreen> {
     return (_wurfe.length - 1).toDouble();
   }
 
-  double _getMinY() {
+  // Calculate Y-axis range (min and max) in one pass to avoid inconsistencies
+  Map<String, double> _getYAxisRange() {
     final values = _wurfe
         .map((w) => _getMetricValue(w, _selectedMetric))
         .whereType<double>()
+        .where((v) => v.isFinite)
         .toList();
-    if (values.isEmpty) return 0.0;
+    
+    if (values.isEmpty) {
+      return {'min': 0.0, 'max': 10.0};
+    }
+    
     final min = values.reduce((a, b) => a < b ? a : b);
     final max = values.reduce((a, b) => a > b ? a : b);
     
-    // Add 15% padding below minimum for better visualization
+    // If all values are the same, add padding
+    if (max == min) {
+      final padding = max == 0 ? 1.0 : max * 0.2;
+      return {
+        'min': (max > 0 ? max * 0.8 : 0.0),
+        'max': max + padding,
+      };
+    }
+    
+    // Add 15% padding for better visualization
     final range = max - min;
-    if (range == 0) {
-      return min > 0 ? min * 0.8 : 0.0;
+    final minY = (min - range * 0.15).clamp(0.0, double.infinity);
+    final maxY = max + range * 0.15;
+    
+    // Final safety check: ensure minY < maxY
+    if (minY >= maxY) {
+      return {
+        'min': 0.0,
+        'max': (max > 0 ? max * 1.2 : 10.0),
+      };
     }
     
-    final minValue = (min - range * 0.15).clamp(0.0, double.infinity);
-    final maxValue = _getMaxY();
-    
-    // Ensure minY is always less than maxY
-    if (minValue >= maxValue) {
-      return maxValue > 0 ? maxValue * 0.9 : 0.0;
-    }
-    return minValue;
+    return {'min': minY, 'max': maxY};
+  }
+
+  double _getMinY() {
+    return _getYAxisRange()['min']!;
   }
 
   double _getMaxY() {
-    final values = _wurfe
-        .map((w) => _getMetricValue(w, _selectedMetric))
-        .whereType<double>()
-        .toList();
-    if (values.isEmpty) return 10.0;
-    final max = values.reduce((a, b) => a > b ? a : b);
-    final min = values.reduce((a, b) => a < b ? a : b);
-    
-    // If all values are the same, add padding to prevent minY == maxY
-    if (max == min) {
-      return max + (max == 0 ? 1.0 : max * 0.2);
-    }
-    
-    // Add 15% padding above maximum for better visualization
-    final range = max - min;
-    return (max + range * 0.15).clamp(0.0, double.infinity);
+    return _getYAxisRange()['max']!;
   }
 
   double _getAverageValue() {
     final values = _wurfe
         .map((w) => _getMetricValue(w, _selectedMetric))
         .whereType<double>()
+        .where((v) => v.isFinite)
         .toList();
     if (values.isEmpty) return 0.0;
     return values.reduce((a, b) => a + b) / values.length;
@@ -978,6 +967,7 @@ class AnalysisScreenState extends State<AnalysisScreen> {
     final values = _wurfe
         .map((w) => _getMetricValue(w, _selectedMetric))
         .whereType<double>()
+        .where((v) => v.isFinite)
         .toList();
     if (values.isEmpty) return 0.0;
     return values.reduce((a, b) => a > b ? a : b);
@@ -987,6 +977,7 @@ class AnalysisScreenState extends State<AnalysisScreen> {
     final values = _wurfe
         .map((w) => _getMetricValue(w, _selectedMetric))
         .whereType<double>()
+        .where((v) => v.isFinite)
         .toList();
     if (values.isEmpty) return 0.0;
     return values.reduce((a, b) => a < b ? a : b);

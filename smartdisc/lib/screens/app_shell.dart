@@ -333,7 +333,6 @@ class _AppShellState extends State<AppShell> {
               destinations: _navItems.map((item) {
                 return NavigationRailDestination(
                   icon: item.icon,
-                  selectedIcon: item.activeIcon ?? item.icon,
                   label: Text(item.label ?? ''),
                 );
               }).toList(),

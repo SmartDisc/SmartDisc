@@ -36,7 +36,7 @@ if (in_array($path, $wurfeListPaths, true) && $method === 'GET') {
     $params[':current_player_id'] = $user['id'];
   }
 
-  $sql = "SELECT id, scheibe_id, player_id, rotation, hoehe, acceleration_max, erstellt_am FROM wurfe WHERE " . implode(" AND ", $where) . " ORDER BY erstellt_am DESC LIMIT :limit";
+  $sql = "SELECT id, scheibe_id, player_id, rotation, hoehe, acceleration_x, acceleration_y, acceleration_z, acceleration_max, erstellt_am FROM wurfe WHERE " . implode(" AND ", $where) . " ORDER BY erstellt_am DESC LIMIT :limit";
   $stmt = $pdo->prepare($sql);
   foreach ($params as $k => $v) {
     if ($k !== ':limit') {
@@ -55,7 +55,7 @@ if ((preg_match("#^$prefix/wurfe/([^/]+)$#", $path, $matches)
   && $method === 'GET'
 ) {
   $wurfId = end($matches);
-  $stmt = $pdo->prepare("SELECT id, scheibe_id, player_id, rotation, hoehe, acceleration_max, erstellt_am FROM wurfe WHERE id = :id AND geloescht = 0");
+  $stmt = $pdo->prepare("SELECT id, scheibe_id, player_id, rotation, hoehe, acceleration_x, acceleration_y, acceleration_z, acceleration_max, erstellt_am FROM wurfe WHERE id = :id AND geloescht = 0");
   $stmt->execute([':id' => $wurfId]);
   $wurf = $stmt->fetch();
   if (!$wurf) {
@@ -82,6 +82,29 @@ if (in_array($path, $wurfeListPaths, true) && $method === 'POST') {
   }
   if (isset($input['acceleration_max']) && is_numeric($input['acceleration_max'])) {
     $input['acceleration_max'] = floatval($input['acceleration_max']);
+  }
+  
+  // Accept acceleration components (ESP32 sends X, Y, Z)
+  if (isset($input['acceleration_x']) && is_numeric($input['acceleration_x'])) {
+    $input['acceleration_x'] = floatval($input['acceleration_x']);
+  }
+  if (isset($input['acceleration_y']) && is_numeric($input['acceleration_y'])) {
+    $input['acceleration_y'] = floatval($input['acceleration_y']);
+  }
+  if (isset($input['acceleration_z']) && is_numeric($input['acceleration_z'])) {
+    $input['acceleration_z'] = floatval($input['acceleration_z']);
+  }
+  
+  // Calculate acceleration_max from components if not provided
+  $hasAccelX = isset($input['acceleration_x']) && is_numeric($input['acceleration_x']);
+  $hasAccelY = isset($input['acceleration_y']) && is_numeric($input['acceleration_y']);
+  $hasAccelZ = isset($input['acceleration_z']) && is_numeric($input['acceleration_z']);
+  
+  if (($hasAccelX || $hasAccelY || $hasAccelZ) && !isset($input['acceleration_max'])) {
+    $x = $hasAccelX ? $input['acceleration_x'] : 0;
+    $y = $hasAccelY ? $input['acceleration_y'] : 0;
+    $z = $hasAccelZ ? $input['acceleration_z'] : 0;
+    $input['acceleration_max'] = sqrt($x * $x + $y * $y + $z * $z);
   }
 
   // Check required fields
@@ -111,12 +134,58 @@ if (in_array($path, $wurfeListPaths, true) && $method === 'POST') {
     $input['acceleration_max'] = floatval($input['acceleration_max']);
   }
 
+  // Duplicate detection: Check for similar throw within last 5 seconds
+  $duplicateCheckSql = "
+    SELECT id FROM wurfe 
+    WHERE scheibe_id = :scheibe_id 
+      AND geloescht = 0
+      AND datetime(erstellt_am) >= datetime('now', '-5 seconds')
+  ";
+  $duplicateCheckParams = [':scheibe_id' => $input['scheibe_id']];
+  
+  // Add tolerance checks for values (±1% tolerance)
+  if ($hasRotation) {
+    $rotationTolerance = $input['rotation'] * 0.01; // 1% tolerance
+    $duplicateCheckSql .= " AND ABS(rotation - :rotation) <= :rotation_tolerance";
+    $duplicateCheckParams[':rotation'] = $input['rotation'];
+    $duplicateCheckParams[':rotation_tolerance'] = $rotationTolerance;
+  }
+  if ($hasHeight) {
+    $heightTolerance = $input['hoehe'] * 0.01; // 1% tolerance
+    $duplicateCheckSql .= " AND ABS(hoehe - :hoehe) <= :height_tolerance";
+    $duplicateCheckParams[':hoehe'] = $input['hoehe'];
+    $duplicateCheckParams[':height_tolerance'] = $heightTolerance;
+  }
+  if ($hasAccel) {
+    $accelTolerance = $input['acceleration_max'] * 0.01; // 1% tolerance
+    $duplicateCheckSql .= " AND ABS(acceleration_max - :accel) <= :accel_tolerance";
+    $duplicateCheckParams[':accel'] = $input['acceleration_max'];
+    $duplicateCheckParams[':accel_tolerance'] = $accelTolerance;
+  }
+  
+  $duplicateCheckSql .= " LIMIT 1";
+  
+  $duplicateCheck = $pdo->prepare($duplicateCheckSql);
+  $duplicateCheck->execute($duplicateCheckParams);
+  
+  if ($duplicateCheck->fetch()) {
+    // Duplicate found - return success but don't insert
+    json_response([
+      'id' => 'duplicate',
+      'message' => 'Duplicate throw detected and ignored',
+      'is_duplicate' => true
+    ], 200);
+    exit;
+  }
+
   $id = $input['id'] ?? ('wurf_' . bin2hex(random_bytes(8)) . '_' . time());
   $stmt = $pdo->prepare("
     INSERT INTO wurfe (
-      id, scheibe_id, player_id, rotation, hoehe, acceleration_max
+      id, scheibe_id, player_id, rotation, hoehe, 
+      acceleration_x, acceleration_y, acceleration_z, acceleration_max
     ) VALUES (
-      :id, :scheibe_id, :player_id, :rotation, :hoehe, :acceleration_max
+      :id, :scheibe_id, :player_id, :rotation, :hoehe, 
+      :acceleration_x, :acceleration_y, :acceleration_z, :acceleration_max
     )
   ");
   try {
@@ -126,6 +195,9 @@ if (in_array($path, $wurfeListPaths, true) && $method === 'POST') {
       ':player_id' => $input['player_id'] ?? null,
       ':rotation' => $hasRotation ? $input['rotation'] : null,
       ':hoehe' => $hasHeight ? $input['hoehe'] : null,
+      ':acceleration_x' => $hasAccelX ? $input['acceleration_x'] : null,
+      ':acceleration_y' => $hasAccelY ? $input['acceleration_y'] : null,
+      ':acceleration_z' => $hasAccelZ ? $input['acceleration_z'] : null,
       ':acceleration_max' => $hasAccel ? $input['acceleration_max'] : null
     ]);
     log_audit('wurfe', $id, 'INSERT', null, $input);

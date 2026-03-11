@@ -25,7 +25,7 @@ class DashboardScreenState extends State<DashboardScreen> {
   final _discSvc = DiscService.instance();
   List<String> discs = [];
   String selectedDisc = '';
-  late Future<List<Wurf>> _wurfeF;
+  Future<List<Wurf>> _wurfeF = Future.value([]);
   bool _localeReady = false;
   VoidCallback? _discsListener;
   
@@ -35,6 +35,11 @@ class DashboardScreenState extends State<DashboardScreen> {
   int _totalThrows = 0;
   String? _lastUsedDisc;
   bool _newDataAvailable = false;
+
+  // Preserve scroll position when data reloads
+  final ScrollController _scrollController = ScrollController();
+  double _savedScrollOffset = 0;
+  bool _shouldRestoreScroll = false;
 
 
   @override
@@ -49,8 +54,8 @@ class DashboardScreenState extends State<DashboardScreen> {
   }
   
   void _startAutoRefresh() {
-    // Auto-refresh every 3 seconds to show new simulator data
-    _refreshTimer = Timer.periodic(const Duration(seconds: 3), (timer) {
+    // Auto-refresh every 8 seconds so list doesn't constantly jump
+    _refreshTimer = Timer.periodic(const Duration(seconds: 8), (timer) {
       if (mounted && !_isRefreshing) {
         _reload(silent: true);
       }
@@ -85,6 +90,7 @@ class DashboardScreenState extends State<DashboardScreen> {
   @override
   void dispose() {
     _refreshTimer?.cancel();
+    _scrollController.dispose();
     if (_discsListener != null) {
       _discSvc.discs.removeListener(_discsListener!);
     }
@@ -105,6 +111,9 @@ class DashboardScreenState extends State<DashboardScreen> {
       final wurfeList = await newWurfeF;
       
       if (mounted) {
+        // Save scroll position so it can be restored after rebuild
+        _savedScrollOffset = _scrollController.hasClients ? _scrollController.offset : 0;
+        _shouldRestoreScroll = true;
         setState(() {
           _wurfeF = Future.value(wurfeList);
           
@@ -168,94 +177,25 @@ class DashboardScreenState extends State<DashboardScreen> {
           // Compute KPIs for the selected disc
           final latest = items.isNotEmpty ? items.first : null;
 
+          // Restore scroll position after a reload (runs once per reload)
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted && _shouldRestoreScroll && _scrollController.hasClients) {
+              _scrollController.jumpTo(_savedScrollOffset);
+              _shouldRestoreScroll = false;
+            }
+          });
+
           return Center(
             child: ConstrainedBox(
               constraints: BoxConstraints(maxWidth: responsive.maxContentWidth),
               child: ListView(
+                controller: _scrollController,
                 padding: EdgeInsets.symmetric(
                   horizontal: responsive.horizontalPadding,
                   vertical: responsive.verticalPadding,
                 ),
             children: [
-              // Stats Header (Total Throws)
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [AppColors.primary.withOpacity(0.1), AppColors.primary.withOpacity(0.05)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: AppColors.primary.withOpacity(0.3), width: 2),
-                ),
-                child: Column(
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        // Total Throws Counter
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                          decoration: BoxDecoration(
-                            color: AppColors.surface,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: AppColors.primary.withOpacity(0.2)),
-                          ),
-                          child: Column(
-                            children: [
-                              Text(
-                                _totalThrows.toString(),
-                                style: AppFont.headline.copyWith(
-                                  fontSize: 32,
-                                  color: AppColors.primary,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              Text(
-                                'Total Throws',
-                                style: AppFont.caption.copyWith(
-                                  color: AppColors.textMuted,
-                                  fontSize: 11,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                    if (_newDataAvailable)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 12),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: Colors.green.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.green.withOpacity(0.3)),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.fiber_manual_record, color: Colors.green, size: 12),
-                              const SizedBox(width: 6),
-                              Text(
-                                'New data received',
-                                style: AppFont.caption.copyWith(
-                                  color: Colors.green.shade700,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-              
-              // 3D Frisbee preview directly under the header — make height responsive
+              // 3D Frisbee preview — make height responsive
               LayoutBuilder(builder: (ctx, constraints) {
                 // Limit the preview to a reasonable height but allow it to scale with width
                 final maxW = constraints.maxWidth;
