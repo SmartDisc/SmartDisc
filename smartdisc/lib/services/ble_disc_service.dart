@@ -100,15 +100,15 @@ class BleDiscService {
   String get connectedDeviceName => _connectedDevice?.platformName ?? 'Unknown';
 
   /// Set or clear the currently active disc ID.
-  /// Pass `null` to accept measurements from all discs again.
+  /// IMPORTANT: If `null`, NO measurements will be forwarded.
   void setActiveDiscId(String? discId) {
     _activeDiscId = discId;
     _logRaw(
       'connection',
       title: 'Active disc changed',
       message: discId == null
-          ? 'No active disc filter (accepting all IDs)'
-          : 'Now accepting only measurements for disc ID "$discId"',
+          ? 'No active disc selected – all incoming BLE packets will be discarded.'
+          : 'Now accepting only measurements for disc ID "$discId".',
     );
   }
   
@@ -506,17 +506,50 @@ class BleDiscService {
       final json = jsonDecode(message) as Map<String, dynamic>;
       final measurement = BleDiscMeasurement.fromJson(json);
 
-      // If an active disc is set, enforce ID match before doing anything else.
-      if (_activeDiscId != null && measurement.scheibeId != _activeDiscId) {
+      // Normalize IDs for robust comparison
+      final incomingId = (measurement.scheibeId).trim();
+      final activeId = (_activeDiscId ?? '').trim();
+
+      // If no active disc is selected, discard everything (safety).
+      if (activeId.isEmpty) {
+        final msg =
+            'Received disc ID "$incomingId" while no active disc is selected.';
+        _logRaw(
+          'error',
+          title: 'Discarded measurement (no active disc)',
+          message: msg,
+        );
+        if (!_errorController.isClosed) {
+          _errorController.add(msg);
+        }
+        return;
+      }
+
+      // Enforce disc ID match before doing anything else.
+      if (incomingId != activeId) {
+        final msg =
+            'Discarded measurement: active disc "$activeId", received "$incomingId".';
         _logRaw(
           'error',
           title: 'Discarded measurement (disc ID mismatch)',
-          message:
-              'Active disc: $_activeDiscId, received: ${measurement.scheibeId}',
+          message: msg,
         );
+        if (!_errorController.isClosed) {
+          _errorController.add(msg);
+        }
         return;
       }
       
+      // At this point, the packet is accepted and will be forwarded.
+      _logRaw(
+        'success',
+        title: 'Accepted measurement',
+        message:
+            'Disc ${measurement.scheibeId} | height=${measurement.hoehe.toStringAsFixed(3)} m, '
+            'rotation=${measurement.rotation.toStringAsFixed(2)}, '
+            'accelMax=${measurement.accelerationMax?.toStringAsFixed(2) ?? '-'}',
+      );
+
       if (!_measurementController.isClosed) {
         _measurementController.add(measurement);
       }
@@ -568,9 +601,10 @@ class BleDiscService {
     final batch = List<BleDiscMeasurement>.from(_measurementBatch);
     _measurementBatch.clear();
     
-    _logRaw('connection', 
+    _logRaw(
+      'connection',
       title: 'Sending batch',
-      message: '${batch.length} measurements to backend'
+      message: '${batch.length} accepted measurements -> POST /api/wurfe',
     );
     
     int successCount = 0;
@@ -579,6 +613,15 @@ class BleDiscService {
     // Send each measurement
     for (final measurement in batch) {
       try {
+        _logRaw(
+          'connection',
+          title: 'POST /api/wurfe',
+          message:
+              'Disc=${measurement.scheibeId}, height=${measurement.hoehe.toStringAsFixed(3)}, '
+              'rotation=${measurement.rotation.toStringAsFixed(2)}, '
+              'accelMax=${measurement.accelerationMax?.toStringAsFixed(2) ?? '-'}',
+        );
+
         await _apiService.createThrow(
           scheibeId: measurement.scheibeId,
           rotation: measurement.rotation,
@@ -594,7 +637,7 @@ class BleDiscService {
       } catch (e) {
         failCount++;
         if (!_errorController.isClosed) {
-          _errorController.add("Failed to save throw: $e");
+          _errorController.add("Failed to save throw to backend: $e");
         }
         _logRaw('error', 
           title: 'Save failed',

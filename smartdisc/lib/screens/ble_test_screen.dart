@@ -21,8 +21,7 @@ class _BleTestScreenState extends State<BleTestScreen> {
   final DiscService _discService = DiscService.instance();
 
   BleConnectionState _connectionState = BleConnectionState.disconnected;
-  // Measurements are no longer displayed in the UI; only forwarded to backend.
-  // We keep no local list to avoid confusion – BLE screen is now just for connection.
+  BleDiscMeasurement? _lastMeasurement;
   final List<String> _errors = [];
   List<String> _foundDeviceNames = [];
   bool _isInitialized = false;
@@ -72,10 +71,11 @@ class _BleTestScreenState extends State<BleTestScreen> {
       });
     });
 
-    // Listen to measurements (for potential future use or debugging),
-    // but do not store or render them in the BLE screen.
+    // Listen to measurements (data-layer status)
     _bleService.measurements.listen((measurement) {
-      // Intentionally no UI list; measurements are sent directly to backend.
+      setState(() {
+        _lastMeasurement = measurement;
+      });
     });
 
     // Listen to errors
@@ -135,6 +135,7 @@ class _BleTestScreenState extends State<BleTestScreen> {
     _bleService.setActiveDiscId(_selectedDiscId);
 
     setState(() {
+      _lastMeasurement = null; // clear stale data before new connection
       _errors.clear();
     });
 
@@ -223,6 +224,11 @@ class _BleTestScreenState extends State<BleTestScreen> {
 
   Future<void> _disconnect() async {
     await _bleService.disconnect();
+    if (mounted) {
+      setState(() {
+        _lastMeasurement = null; // clear latest measurement on disconnect
+      });
+    }
   }
 
   @override
@@ -239,12 +245,10 @@ class _BleTestScreenState extends State<BleTestScreen> {
     final currentDiscs = List<Map<String, dynamic>>.from(_discService.discs.value);
     String? newSelected = _selectedDiscId;
 
-    // If no selection yet or selected disc no longer exists, pick the first one if available
+    // Keep explicit user selection if it still exists; otherwise clear it.
     final ids = currentDiscs.map((d) => d['id'] as String?).whereType<String>().toList();
-    if (ids.isEmpty) {
+    if (ids.isEmpty || (newSelected != null && !ids.contains(newSelected))) {
       newSelected = null;
-    } else if (newSelected == null || !ids.contains(newSelected)) {
-      newSelected = ids.first;
     }
 
     setState(() {
@@ -252,7 +256,8 @@ class _BleTestScreenState extends State<BleTestScreen> {
       _selectedDiscId = newSelected;
     });
 
-    // Update BLE filter whenever the effective selection changes
+    // Update BLE filter whenever the effective selection changes.
+    // If null, service will safely discard all incoming packets.
     _bleService.setActiveDiscId(newSelected);
   }
 
@@ -323,6 +328,7 @@ class _BleTestScreenState extends State<BleTestScreen> {
                         ),
                         const SizedBox(height: 8),
                         const Text(
+                          'Please select a disc before connecting.\n'
                           'BLE data will only be processed if the ESP sends the same disc ID.',
                           style: TextStyle(fontSize: 11, color: Colors.grey),
                         ),
@@ -395,7 +401,12 @@ class _BleTestScreenState extends State<BleTestScreen> {
                                   Text(
                                     _connectionState ==
                                             BleConnectionState.connected
-                                        ? 'Receiving data in real-time'
+                                        ? (_selectedDiscId == null ||
+                                                _selectedDiscId!.isEmpty
+                                            ? 'Connected • No disc selected'
+                                            : (_lastMeasurement == null
+                                                ? 'Connected • Waiting for data...'
+                                                : 'Connected • Receiving measurements'))
                                         : _connectionState ==
                                                 BleConnectionState.scanning
                                             ? 'Looking for ESP32 devices...'
@@ -513,12 +524,14 @@ class _BleTestScreenState extends State<BleTestScreen> {
                       Expanded(
                         child: ElevatedButton.icon(
                           onPressed:
-                              _connectionState ==
-                                      BleConnectionState.connected ||
-                                  _connectionState ==
-                                      BleConnectionState.connecting ||
-                                  _connectionState ==
-                                      BleConnectionState.scanning
+                              _selectedDiscId == null ||
+                                      _selectedDiscId!.isEmpty ||
+                                      _connectionState ==
+                                          BleConnectionState.connected ||
+                                      _connectionState ==
+                                          BleConnectionState.connecting ||
+                                      _connectionState ==
+                                          BleConnectionState.scanning
                               ? null
                               : _scanAndConnect,
                           icon: const Icon(Icons.bluetooth_searching),
@@ -543,15 +556,58 @@ class _BleTestScreenState extends State<BleTestScreen> {
                   ),
                 ),
 
-                // Fill remaining space with a simple info area instead of a measurement list
-                const Expanded(
+                // Data-layer status: show latest measurement (if any), otherwise a waiting message
+                Expanded(
                   child: Center(
-                    child: Text(
-                      'Connected measurements are forwarded directly to the backend.\n'
-                      'Use the dashboard, history, or analysis screens (or API endpoints) to view data.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 14, color: Colors.grey),
-                    ),
+                    child: _connectionState == BleConnectionState.connected
+                        ? (_lastMeasurement == null
+                            ? const Text(
+                                'Connected.\nWaiting for measurement data from ESP32...',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(fontSize: 14, color: Colors.grey),
+                              )
+                            : Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Text(
+                                    'Latest measurement (accepted & forwarded)',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    'Disc: ${_lastMeasurement!.scheibeId}',
+                                    style: const TextStyle(fontSize: 14),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'Height: ${_lastMeasurement!.hoehe.toStringAsFixed(3)} m',
+                                    style: const TextStyle(fontSize: 13),
+                                  ),
+                                  Text(
+                                    'Rotation: ${_lastMeasurement!.rotation.toStringAsFixed(2)}',
+                                    style: const TextStyle(fontSize: 13),
+                                  ),
+                                  if (_lastMeasurement!.accelerationMax != null)
+                                    Text(
+                                      'Accel max: ${_lastMeasurement!.accelerationMax!.toStringAsFixed(2)} m/s²',
+                                      style: const TextStyle(fontSize: 13),
+                                    ),
+                                  const SizedBox(height: 8),
+                                  const Text(
+                                    'Full history is visible in Dashboard, History, and Analysis.',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(fontSize: 11, color: Colors.grey),
+                                  ),
+                                ],
+                              ))
+                        : const Text(
+                            'Not connected.\nStart a scan to connect to ESP32.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(fontSize: 14, color: Colors.grey),
+                          ),
                   ),
                 ),
 
