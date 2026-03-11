@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:math' as math;
+import 'dart:async';
 import 'package:model_viewer_plus/model_viewer_plus.dart';
 import 'package:intl/intl.dart';
 import 'package:intl/date_symbol_data_local.dart';
@@ -27,6 +28,13 @@ class DashboardScreenState extends State<DashboardScreen> {
   late Future<List<Wurf>> _wurfeF;
   bool _localeReady = false;
   VoidCallback? _discsListener;
+  
+  // Auto-refresh
+  Timer? _refreshTimer;
+  bool _isRefreshing = false;
+  int _totalThrows = 0;
+  String? _lastUsedDisc;
+  bool _newDataAvailable = false;
 
 
   @override
@@ -37,6 +45,16 @@ class DashboardScreenState extends State<DashboardScreen> {
     });
     _reload();
     _initDiscs();
+    _startAutoRefresh();
+  }
+  
+  void _startAutoRefresh() {
+    // Auto-refresh every 3 seconds to show new simulator data
+    _refreshTimer = Timer.periodic(const Duration(seconds: 3), (timer) {
+      if (mounted && !_isRefreshing) {
+        _reload(silent: true);
+      }
+    });
   }
 
   Future<void> _initDiscs() async {
@@ -66,15 +84,59 @@ class DashboardScreenState extends State<DashboardScreen> {
 
   @override
   void dispose() {
+    _refreshTimer?.cancel();
     if (_discsListener != null) {
       _discSvc.discs.removeListener(_discsListener!);
     }
     super.dispose();
   }
 
-  void _reload() {
-    _wurfeF = api.getWuerfe(limit: 50, scheibeId: selectedDisc);
-    setState(() {});
+  Future<void> _reload({bool silent = false}) async {
+    if (!silent) {
+      _isRefreshing = true;
+    }
+    
+    final newWurfeF = api.getWuerfe(scheibeId: selectedDisc); // No limit - get all
+   
+    // Get total count
+    try {
+      final allWurfe = await api.getWuerfe(); // No limit - get all
+      final newTotal = allWurfe.length;
+      final wurfeList = await newWurfeF;
+      
+      if (mounted) {
+        setState(() {
+          _wurfeF = Future.value(wurfeList);
+          
+          // Check if we have new data
+          if (newTotal > _totalThrows && _totalThrows > 0) {
+            _newDataAvailable = true;
+            // Clear indicator after 2 seconds
+            Future.delayed(const Duration(seconds: 2), () {
+              if (mounted) {
+                setState(() => _newDataAvailable = false);
+              }
+            });
+          }
+          
+          _totalThrows = newTotal;
+          
+          // Track last used disc
+          if (wurfeList.isNotEmpty) {
+            _lastUsedDisc = wurfeList.first.scheibeId;
+          }
+          
+          _isRefreshing = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _wurfeF = newWurfeF;
+          _isRefreshing = false;
+        });
+      }
+    }
   }
 
 
@@ -115,6 +177,84 @@ class DashboardScreenState extends State<DashboardScreen> {
                   vertical: responsive.verticalPadding,
                 ),
             children: [
+              // Stats Header (Total Throws)
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [AppColors.primary.withOpacity(0.1), AppColors.primary.withOpacity(0.05)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: AppColors.primary.withOpacity(0.3), width: 2),
+                ),
+                child: Column(
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        // Total Throws Counter
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          decoration: BoxDecoration(
+                            color: AppColors.surface,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: AppColors.primary.withOpacity(0.2)),
+                          ),
+                          child: Column(
+                            children: [
+                              Text(
+                                _totalThrows.toString(),
+                                style: AppFont.headline.copyWith(
+                                  fontSize: 32,
+                                  color: AppColors.primary,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              Text(
+                                'Total Throws',
+                                style: AppFont.caption.copyWith(
+                                  color: AppColors.textMuted,
+                                  fontSize: 11,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (_newDataAvailable)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 12),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: Colors.green.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.green.withOpacity(0.3)),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.fiber_manual_record, color: Colors.green, size: 12),
+                              const SizedBox(width: 6),
+                              Text(
+                                'New data received',
+                                style: AppFont.caption.copyWith(
+                                  color: Colors.green.shade700,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              
               // 3D Frisbee preview directly under the header — make height responsive
               LayoutBuilder(builder: (ctx, constraints) {
                 // Limit the preview to a reasonable height but allow it to scale with width
@@ -230,7 +370,7 @@ class DashboardScreenState extends State<DashboardScreen> {
               if (items.isEmpty)
                 const ListTile(title: Text('No throws yet'))
               else
-                ...items.take(10).map((w) {
+                ...items.map((w) {
                   final rot = w.rotation != null ? '${w.rotation!.toStringAsFixed(2)} rps' : null;
                   final height = w.hoehe != null ? '${w.hoehe!.toStringAsFixed(2)} m' : null;
                   final accel = w.accelerationMax != null ? '${w.accelerationMax!.toStringAsFixed(2)} m/s²' : null;
