@@ -52,3 +52,10 @@ macos/Flutter/GeneratedPluginRegistrant.swift
 windows/flutter/generated_plugins.cmake
 linux/flutter/generated_plugins.cmake
 web/plugins.js
+
+# Sensitive configuration and database files
+.env
+*.env
+api-php/.env
+api-php/data/*.sqlite
+*.sqlite
