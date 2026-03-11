@@ -24,6 +24,22 @@ if (in_array($path, $wurfeListPaths, true) && $method === 'GET') {
     $where[] = "erstellt_am <= :to";
     $params[':to'] = $_GET['to'];
   }
+  if (isset($_GET['minRotation']) && is_numeric($_GET['minRotation'])) {
+    $where[] = "rotation >= :min_rotation";
+    $params[':min_rotation'] = floatval($_GET['minRotation']);
+  }
+  if (isset($_GET['maxRotation']) && is_numeric($_GET['maxRotation'])) {
+    $where[] = "rotation <= :max_rotation";
+    $params[':max_rotation'] = floatval($_GET['maxRotation']);
+  }
+  if (isset($_GET['minHeight']) && is_numeric($_GET['minHeight'])) {
+    $where[] = "hoehe >= :min_hoehe";
+    $params[':min_hoehe'] = floatval($_GET['minHeight']);
+  }
+  if (isset($_GET['maxHeight']) && is_numeric($_GET['maxHeight'])) {
+    $where[] = "hoehe <= :max_hoehe";
+    $params[':max_hoehe'] = floatval($_GET['maxHeight']);
+  }
 
   // Spieler sehen nur Würfe von Discs, die ihnen zugeordnet sind
   $user = null;

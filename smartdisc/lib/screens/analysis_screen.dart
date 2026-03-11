@@ -1,16 +1,12 @@
 import 'package:flutter/material.dart';
-import 'dart:io';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
-import 'package:path/path.dart' as p;
-import 'package:path_provider/path_provider.dart';
-import 'package:share_plus/share_plus.dart';
-import 'package:open_filex/open_filex.dart';
 import '../services/api_service.dart';
 import '../services/disc_service.dart';
 import '../models/wurf.dart';
 import '../styles/app_colors.dart';
 import '../styles/app_font.dart';
+import '../utils/export_handler.dart';
 import '../utils/responsive.dart';
 
 enum YAxisMetric {
@@ -378,40 +374,10 @@ class AnalysisScreenState extends State<AnalysisScreen> {
       discId: exportAll ? null : _selectedDisc,
     );
 
-    // Save to platform-appropriate directory
     final timestamp = DateFormat('yyyyMMdd_HHmmss').format(DateTime.now());
     final filename = 'smartdisc_throws_$timestamp.$format';
-    
-    // Get the appropriate directory for all platforms
-    final directory = await getApplicationDocumentsDirectory();
-    final file = File(p.join(directory.path, filename));
-    
-    // Create parent directory if needed
-    await file.parent.create(recursive: true);
-    await file.writeAsBytes(bytes, flush: true);
 
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        behavior: SnackBarBehavior.floating,
-        content: Row(
-          children: [
-            const Expanded(child: Text('Export saved.')),
-            TextButton(
-              onPressed: () => OpenFilex.open(file.path),
-              child: const Text('Open'),
-            ),
-            TextButton(
-              onPressed: () => Share.shareXFiles(
-                [XFile(file.path)],
-                text: 'SmartDisc export',
-              ),
-              child: const Text('Share'),
-            ),
-          ],
-        ),
-      ),
-    );
+    await saveExportAndShare(bytes, filename, context);
   }
 
   List<FlSpot> _getChartSpots() {

@@ -7,15 +7,32 @@ if ($path === "$prefix/exports/throws" && $method === 'GET') {
   $user = get_user_by_token($token);
   if (!$user) {
     json_response(['error' => ['code' => 'UNAUTHORIZED', 'message' => 'Token ungültig']], 401);
+    exit;
   }
 
   $format = strtolower($_GET['format'] ?? 'csv');
   if ($format !== 'csv') {
     json_response(['error' => ['code' => 'BAD_REQUEST', 'message' => 'Unsupported export format']], 400);
+    exit;
   }
 
-  $where = ['geloescht = 0', 'player_id = :player_id'];
-  $params = [':player_id' => $user['id']];
+  $where = ['geloescht = 0'];
+  $params = [];
+
+  if (($user['role'] ?? null) === 'trainer') {
+    // Trainers see all throws; optional filter by player or disc
+    if (!empty($_GET['playerId'])) {
+      $where[] = 'player_id = :player_id';
+      $params[':player_id'] = $_GET['playerId'];
+    }
+  } else {
+    // Players see throws that are either linked to them OR from a disc assigned to them (e.g. unlinked hardware throws)
+    $where[] = "(
+      player_id = :player_id
+      OR (player_id IS NULL AND EXISTS (SELECT 1 FROM disc_assignments da WHERE da.disc_id = wurfe.scheibe_id AND da.player_id = :player_id))
+    )";
+    $params[':player_id'] = $user['id'];
+  }
 
   if (!empty($_GET['discId'])) {
     $where[] = 'scheibe_id = :scheibe_id';
@@ -64,13 +81,33 @@ if ($path === "$prefix/exports/throws" && $method === 'GET') {
   exit;
 }
 
-// GET /api/export.csv (legacy)
+// GET /api/export.csv (legacy) - requires auth; trainers get all throws, players get own only
 if ($path === "$prefix/export.csv" && $method === 'GET') {
+  $token = require_auth();
+  $user = get_user_by_token($token);
+  if (!$user) {
+    json_response(['error' => ['code' => 'UNAUTHORIZED', 'message' => 'Token ungültig']], 401);
+    exit;
+  }
   header('Content-Type: text/csv; charset=utf-8');
   header('Content-Disposition: attachment; filename="smartdisc_throws.csv"');
   $out = fopen('php://output', 'w');
   fputcsv($out, ['id', 'scheibe_id', 'player_id', 'rotation', 'hoehe', 'acceleration_max', 'erstellt_am'], ';');
-  $stmt = $pdo->query("SELECT id, scheibe_id, player_id, rotation, hoehe, acceleration_max, erstellt_am FROM wurfe WHERE geloescht = 0 ORDER BY erstellt_am DESC");
+  if (($user['role'] ?? null) === 'trainer') {
+    $stmt = $pdo->query("SELECT id, scheibe_id, player_id, rotation, hoehe, acceleration_max, erstellt_am FROM wurfe WHERE geloescht = 0 ORDER BY erstellt_am DESC");
+  } else {
+    $stmt = $pdo->prepare("
+      SELECT id, scheibe_id, player_id, rotation, hoehe, acceleration_max, erstellt_am
+      FROM wurfe
+      WHERE geloescht = 0
+        AND (
+          player_id = :player_id
+          OR (player_id IS NULL AND EXISTS (SELECT 1 FROM disc_assignments da WHERE da.disc_id = wurfe.scheibe_id AND da.player_id = :player_id))
+        )
+      ORDER BY erstellt_am DESC
+    ");
+    $stmt->execute([':player_id' => $user['id']]);
+  }
   while ($row = $stmt->fetch()) {
     fputcsv($out, $row, ';');
   }

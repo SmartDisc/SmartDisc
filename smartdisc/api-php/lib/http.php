@@ -11,7 +11,12 @@ function json_response($data, $code = 200)
 
 function get_json_input()
 {
-  return json_decode(file_get_contents('php://input'), true) ?? [];
+  $raw = file_get_contents('php://input');
+  $decoded = json_decode($raw, true);
+  if ($raw !== '' && $raw !== false && json_last_error() !== JSON_ERROR_NONE) {
+    json_response(['error' => ['code' => 'INVALID_JSON', 'message' => 'Invalid JSON in request body']], 400);
+  }
+  return $decoded ?? [];
 }
 
 function setup_cors()
