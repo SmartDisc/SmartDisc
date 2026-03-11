@@ -1,22 +1,51 @@
 <?php
 
 // GET /api/scheiben - Liste aller Messsysteme/Scheiben
-// Simplified for BLE workflow: always return all active discs,
-// independent of trainer/player roles or assignments.
+// Trainer/Coaches sehen alle aktiven Discs.
+// Spieler sehen nur Discs, die ihnen zugeordnet wurden.
 if ($path === "$prefix/scheiben" && $method === 'GET') {
-  $stmt = $pdo->query("
+  // Aktuellen Benutzer aus Token ermitteln (falls vorhanden)
+  $user = null;
+  $token = get_bearer_token();
+  if ($token) {
+    $user = get_user_by_token($token);
+  }
+
+  // Basis-Query: alle aktiven Discs
+  $sql = "
     SELECT 
-      id, 
-      name, 
-      modell, 
-      seriennummer, 
-      firmware_version, 
-      kalibrierungsdatum, 
-      erstellt_am 
-    FROM scheiben 
-    WHERE aktiv = 1 
-    ORDER BY erstellt_am DESC
-  ");
+      s.id, 
+      s.name, 
+      s.modell, 
+      s.seriennummer, 
+      s.firmware_version, 
+      s.kalibrierungsdatum, 
+      s.erstellt_am 
+    FROM scheiben s
+    WHERE s.aktiv = 1
+  ";
+  $params = [];
+
+  // Spieler: nur zugeordnete Discs anzeigen
+  if ($user && ($user['role'] ?? null) === 'player') {
+    $sql .= "
+      AND EXISTS (
+        SELECT 1
+        FROM disc_assignments da
+        WHERE da.disc_id = s.id
+          AND da.player_id = :current_player_id
+      )
+    ";
+    $params[':current_player_id'] = $user['id'];
+  }
+
+  $sql .= " ORDER BY s.erstellt_am DESC";
+
+  $stmt = $pdo->prepare($sql);
+  foreach ($params as $k => $v) {
+    $stmt->bindValue($k, $v);
+  }
+  $stmt->execute();
   json_response(['items' => $stmt->fetchAll()]);
 }
 
