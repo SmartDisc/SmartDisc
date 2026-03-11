@@ -17,9 +17,9 @@ if (in_array($path, $wurfeListPaths, true) && $method === 'GET') {
   $where = ['geloescht = 0'];
   $params = [];
 
-  if (!empty($_GET['scheibe_id'])) {
+  if (isset($_GET['scheibe_id']) && $_GET['scheibe_id'] !== '') {
     $where[] = "scheibe_id = :scheibe_id";
-    $params[':scheibe_id'] = $_GET['scheibe_id'];
+    $params[':scheibe_id'] = (string) $_GET['scheibe_id'];
   }
   if (!empty($_GET['player_id'])) {
     $where[] = "player_id = :player_id";
@@ -166,49 +166,8 @@ if (in_array($path, $wurfeListPaths, true) && $method === 'POST') {
     $input['acceleration_max'] = floatval($input['acceleration_max']);
   }
 
-  // Duplicate detection: Check for similar throw within last 5 seconds
-  $duplicateCheckSql = "
-    SELECT id FROM wurfe 
-    WHERE scheibe_id = :scheibe_id 
-      AND geloescht = 0
-      AND datetime(erstellt_am) >= datetime('now', '-5 seconds')
-  ";
-  $duplicateCheckParams = [':scheibe_id' => $input['scheibe_id']];
-  
-  // Add tolerance checks for values (±1% tolerance)
-  if ($hasRotation) {
-    $rotationTolerance = $input['rotation'] * 0.01; // 1% tolerance
-    $duplicateCheckSql .= " AND ABS(rotation - :rotation) <= :rotation_tolerance";
-    $duplicateCheckParams[':rotation'] = $input['rotation'];
-    $duplicateCheckParams[':rotation_tolerance'] = $rotationTolerance;
-  }
-  if ($hasHeight) {
-    $heightTolerance = $input['hoehe'] * 0.01; // 1% tolerance
-    $duplicateCheckSql .= " AND ABS(hoehe - :hoehe) <= :height_tolerance";
-    $duplicateCheckParams[':hoehe'] = $input['hoehe'];
-    $duplicateCheckParams[':height_tolerance'] = $heightTolerance;
-  }
-  if ($hasAccel) {
-    $accelTolerance = $input['acceleration_max'] * 0.01; // 1% tolerance
-    $duplicateCheckSql .= " AND ABS(acceleration_max - :accel) <= :accel_tolerance";
-    $duplicateCheckParams[':accel'] = $input['acceleration_max'];
-    $duplicateCheckParams[':accel_tolerance'] = $accelTolerance;
-  }
-  
-  $duplicateCheckSql .= " LIMIT 1";
-  
-  $duplicateCheck = $pdo->prepare($duplicateCheckSql);
-  $duplicateCheck->execute($duplicateCheckParams);
-  
-  if ($duplicateCheck->fetch()) {
-    // Duplicate found - return success but don't insert
-    json_response([
-      'id' => 'duplicate',
-      'message' => 'Duplicate throw detected and ignored',
-      'is_duplicate' => true
-    ], 200);
-    exit;
-  }
+  // No duplicate detection: one accepted BLE packet = one stored row.
+  // Flutter sends each measurement once; every POST is persisted.
 
   $id = $input['id'] ?? ('wurf_' . bin2hex(random_bytes(8)) . '_' . time());
   $stmt = $pdo->prepare("

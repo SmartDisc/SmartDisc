@@ -36,7 +36,7 @@ if ($path === "$prefix/exports/throws" && $method === 'GET') {
 
   if (!empty($_GET['discId'])) {
     $where[] = 'scheibe_id = :scheibe_id';
-    $params[':scheibe_id'] = $_GET['discId'];
+    $params[':scheibe_id'] = (string) $_GET['discId'];
   }
 
   if (isset($_GET['minHeight']) && is_numeric($_GET['minHeight'])) {

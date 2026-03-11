@@ -40,7 +40,7 @@ class Wurf {
     
     return Wurf(
       id: j['id'].toString(),
-      scheibeId: j['scheibe_id'] as String?,
+      scheibeId: j['scheibe_id'] != null ? j['scheibe_id'].toString() : null,
       // rotation may come from measurement aggregation or direct field
       rotation: (j['rotation'] as num?)?.toDouble(),
       // accept either 'hoehe' or 'height'
@@ -50,7 +50,7 @@ class Wurf {
       accelerationY: accelY,
       accelerationZ: accelZ,
       accelerationMax: accelMax,
-      erstelltAm: j['erstellt_am'] as String?,
+      erstelltAm: j['erstellt_am'] != null ? j['erstellt_am'].toString() : null,
     );
   }
 }

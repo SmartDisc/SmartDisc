@@ -93,9 +93,10 @@ class DashboardScreenState extends State<DashboardScreen> {
     if (!silent) {
       _isRefreshing = true;
     }
-    final newWurfeF = api.getWuerfe(scheibeId: selectedDisc);
+    // Load from backend so stored data remains visible after refresh or app restart (limit allows enough history).
+    final newWurfeF = api.getWuerfe(limit: 100, scheibeId: selectedDisc);
     try {
-      final allWurfe = await api.getWuerfe();
+      final allWurfe = await api.getWuerfe(limit: 100);
       final newTotal = allWurfe.length;
       final wurfeList = await newWurfeF;
       if (mounted) {
@@ -103,7 +104,7 @@ class DashboardScreenState extends State<DashboardScreen> {
         _shouldRestoreScroll = true;
         setState(() {
           _wurfeF = Future.value(wurfeList);
-          // Clear any local live throws now that fresh data is loaded from backend
+          // Clear live buffer on reload so backend data is the source of truth (no visible duplicates).
           _liveWurfe.clear();
           if (newTotal > _totalThrows && _totalThrows > 0) {
             _newDataAvailable = true;
@@ -315,8 +316,7 @@ class DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  /// Inject a live measurement from BLE into the dashboard while app is running.
-  /// This does not replace backend persistence; it only updates the UI immediately.
+  /// Inject a live measurement from BLE for immediate feedback. Long-term visibility comes from backend (reload loads stored data).
   void addLiveMeasurementFromBle(BleDiscMeasurement m) {
     // Optional: only show when current disc filter matches.
     if (selectedDisc.isNotEmpty && m.scheibeId != selectedDisc) {

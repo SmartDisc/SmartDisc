@@ -64,7 +64,8 @@ class AnalysisScreenState extends State<AnalysisScreen> {
   Future<void> _loadWurfe() async {
     setState(() => _isLoading = true);
     try {
-      final wurfe = await _apiService.getWuerfe(); // No limit - get all throws
+      // Load from backend so stored data remains visible after refresh or app restart.
+      final wurfe = await _apiService.getWuerfe(limit: 500);
       // Sort by timestamp (oldest first for graph)
       wurfe.sort((a, b) {
         DateTime aTime = DateTime(1970);
@@ -79,8 +80,7 @@ class AnalysisScreenState extends State<AnalysisScreen> {
       });
       setState(() {
         _allWurfe = wurfe;
-        // Clear live measurements now that fresh data is loaded from backend
-        // This prevents duplicates when persisted throws are reloaded
+        // Clear live buffer on reload so backend is source of truth (no visible duplicates when reloading).
         _liveWurfe.clear();
         _applyDiscFilter();
         _isLoading = false;
@@ -95,8 +95,7 @@ class AnalysisScreenState extends State<AnalysisScreen> {
     }
   }
 
-  /// Inject a live measurement from BLE into the analysis view.
-  /// This does not replace backend persistence; it only updates the UI immediately.
+  /// Inject a live measurement from BLE for immediate feedback. Long-term visibility comes from backend (Dashboard/History/Analysis load stored data on reload).
   void addLiveMeasurementFromBle(BleDiscMeasurement m) {
     final nowIso = DateTime.now().toUtc().toIso8601String();
     final wurf = Wurf(

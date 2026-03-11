@@ -44,6 +44,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
   }
 
   void _reload() {
+    // Load from backend so stored data remains visible after refresh or app restart.
     _wurfeF = _api.getWuerfe(limit: 200);
     setState(() {});
   }

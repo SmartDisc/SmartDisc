@@ -593,7 +593,8 @@ class BleDiscService {
     _logRaw('connection', title: 'Batch timer stopped');
   }
   
-  /// Send accumulated measurements to backend
+  /// Send accumulated measurements to backend.
+  /// Every accepted BLE packet is stored persistently so data remains visible after refresh or app restart.
   Future<void> _sendBatch() async {
     if (_measurementBatch.isEmpty) return;
     
