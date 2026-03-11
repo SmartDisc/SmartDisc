@@ -17,9 +17,20 @@ String _normalizeBaseUrl(String raw) {
 /// - On a physical device, you must use a reachable LAN/VPN IP/hostname.
 String get apiBaseUrl {
   const fromEnv = String.fromEnvironment('API_BASE', defaultValue: '');
-  if (fromEnv.trim().isNotEmpty) return _normalizeBaseUrl(fromEnv);
-
-  // Sensible defaults for local development.
-  if (isAndroid) return 'http://10.0.2.2:8000/api';
-  return 'http://localhost:8000/api';
+  
+  String url;
+  if (fromEnv.trim().isNotEmpty) {
+    url = _normalizeBaseUrl(fromEnv);
+    print('[ENV] Using API_BASE from environment: $url');
+  } else {
+    // Sensible defaults for local development.
+    if (isAndroid) {
+      url = 'http://10.0.2.2:8000/api';
+    } else {
+      url = 'http://localhost:8000/api';
+    }
+    print('[ENV] Using default API URL: $url (isAndroid: $isAndroid)');
+  }
+  
+  return url;
 }

@@ -10,6 +10,7 @@ import '../styles/app_colors.dart';
 import '../styles/app_font.dart';
 import '../widgets/stat_card.dart';
 import '../models/wurf.dart';
+import '../models/ble_disc_measurement.dart';
 import '../utils/responsive.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -34,6 +35,7 @@ class DashboardScreenState extends State<DashboardScreen> {
   final ScrollController _scrollController = ScrollController();
   double _savedScrollOffset = 0;
   bool _shouldRestoreScroll = false;
+  final List<Wurf> _liveWurfe = [];
 
   @override
   void initState() {
@@ -101,6 +103,8 @@ class DashboardScreenState extends State<DashboardScreen> {
         _shouldRestoreScroll = true;
         setState(() {
           _wurfeF = Future.value(wurfeList);
+          // Clear any local live throws now that fresh data is loaded from backend
+          _liveWurfe.clear();
           if (newTotal > _totalThrows && _totalThrows > 0) {
             _newDataAvailable = true;
             Future.delayed(const Duration(seconds: 2), () {
@@ -156,7 +160,9 @@ class DashboardScreenState extends State<DashboardScreen> {
               if (s.connectionState != ConnectionState.done) {
                 return const Center(child: CircularProgressIndicator(color: AppColors.primary));
               }
-              final items = s.data ?? [];
+              final baseItems = s.data ?? [];
+              // Prepend any live throws captured from BLE (not yet persisted or just persisted)
+              final items = [..._liveWurfe, ...baseItems];
               final responsive = context.responsive;
               final latest = items.isNotEmpty ? items.first : null;
 
@@ -307,6 +313,35 @@ class DashboardScreenState extends State<DashboardScreen> {
         ),
       ),
     );
+  }
+
+  /// Inject a live measurement from BLE into the dashboard while app is running.
+  /// This does not replace backend persistence; it only updates the UI immediately.
+  void addLiveMeasurementFromBle(BleDiscMeasurement m) {
+    // Optional: only show when current disc filter matches.
+    if (selectedDisc.isNotEmpty && m.scheibeId != selectedDisc) {
+      return;
+    }
+    final nowIso = DateTime.now().toUtc().toIso8601String();
+    final wurf = Wurf(
+      id: 'live_${DateTime.now().microsecondsSinceEpoch}',
+      scheibeId: m.scheibeId,
+      rotation: m.rotation,
+      hoehe: m.hoehe,
+      accelerationX: m.accelerationX,
+      accelerationY: m.accelerationY,
+      accelerationZ: m.accelerationZ,
+      accelerationMax: m.accelerationMax,
+      erstelltAm: nowIso,
+    );
+    if (!mounted) return;
+    setState(() {
+      _liveWurfe.insert(0, wurf);
+      // keep list reasonably small
+      if (_liveWurfe.length > 50) {
+        _liveWurfe.removeLast();
+      }
+    });
   }
 
   Widget _buildHeroHeader(Responsive responsive) {

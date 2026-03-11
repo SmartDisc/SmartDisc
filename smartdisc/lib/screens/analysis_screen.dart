@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../services/api_service.dart';
 import '../services/disc_service.dart';
 import '../models/wurf.dart';
+import '../models/ble_disc_measurement.dart';
 import '../styles/app_colors.dart';
 import '../styles/app_font.dart';
 import '../utils/export_handler.dart';
@@ -27,6 +28,7 @@ class AnalysisScreenState extends State<AnalysisScreen> {
   final DiscService _discService = DiscService.instance();
   List<Wurf> _wurfe = [];
   List<Wurf> _allWurfe = []; // Store all wurfe for filtering
+  final List<Wurf> _liveWurfe = []; // Live measurements from BLE (bounded)
   bool _isLoading = true;
   YAxisMetric _selectedMetric = YAxisMetric.rotation;
   String? _selectedDisc; // null = "Alle"
@@ -77,6 +79,9 @@ class AnalysisScreenState extends State<AnalysisScreen> {
       });
       setState(() {
         _allWurfe = wurfe;
+        // Clear live measurements now that fresh data is loaded from backend
+        // This prevents duplicates when persisted throws are reloaded
+        _liveWurfe.clear();
         _applyDiscFilter();
         _isLoading = false;
       });
@@ -88,6 +93,33 @@ class AnalysisScreenState extends State<AnalysisScreen> {
         );
       }
     }
+  }
+
+  /// Inject a live measurement from BLE into the analysis view.
+  /// This does not replace backend persistence; it only updates the UI immediately.
+  void addLiveMeasurementFromBle(BleDiscMeasurement m) {
+    final nowIso = DateTime.now().toUtc().toIso8601String();
+    final wurf = Wurf(
+      id: 'live_${DateTime.now().microsecondsSinceEpoch}',
+      scheibeId: m.scheibeId,
+      rotation: m.rotation,
+      hoehe: m.hoehe,
+      accelerationX: m.accelerationX,
+      accelerationY: m.accelerationY,
+      accelerationZ: m.accelerationZ,
+      accelerationMax: m.accelerationMax,
+      erstelltAm: nowIso,
+    );
+    if (!mounted) return;
+    setState(() {
+      // Add to live buffer at the end (newest)
+      _liveWurfe.add(wurf);
+      // Keep list bounded for efficiency during continuous BLE input
+      if (_liveWurfe.length > 50) {
+        _liveWurfe.removeAt(0); // Remove oldest
+      }
+      _applyDiscFilter();
+    });
   }
 
   String _getMetricLabel(YAxisMetric metric) {
@@ -423,12 +455,15 @@ class AnalysisScreenState extends State<AnalysisScreen> {
   }
 
   void _applyDiscFilter() {
+    // Merge backend data with live BLE measurements
+    final combined = [..._allWurfe, ..._liveWurfe];
+    
     if (_selectedDisc == null) {
       // Show all
-      _wurfe = List.from(_allWurfe);
+      _wurfe = List.from(combined);
     } else {
       // Filter by selected disc
-      _wurfe = _allWurfe.where((w) => w.scheibeId == _selectedDisc).toList();
+      _wurfe = combined.where((w) => w.scheibeId == _selectedDisc).toList();
     }
     // Re-sort by timestamp
     _wurfe.sort((a, b) {

@@ -5,6 +5,7 @@ import 'history_screen.dart';
 import 'profile_screen.dart';
 import 'discs_screen.dart';
 import 'ble_test_screen.dart';
+import '../models/ble_disc_measurement.dart';
 import 'disc_assignments_screen.dart';
 import '../services/auth_service.dart';
 import '../services/disc_service.dart';
@@ -66,7 +67,7 @@ class _AppShellState extends State<AppShell> {
         const HistoryScreen(),
         const DiscsScreen(),
         const DiscAssignmentsScreen(),
-        const BleTestScreen(),
+        BleTestScreen(onMeasurementAccepted: _handleLiveMeasurement),
         const ProfileScreen(),
       ];
       _navItems = const [
@@ -113,7 +114,7 @@ class _AppShellState extends State<AppShell> {
         AnalysisScreen(key: _analysisKey),
         const HistoryScreen(),
         const DiscsScreen(),
-        const BleTestScreen(),
+        BleTestScreen(onMeasurementAccepted: _handleLiveMeasurement),
         const ProfileScreen(),
       ];
       _navItems = const [
@@ -151,6 +152,12 @@ class _AppShellState extends State<AppShell> {
         _selectedIndex = idx;
       });
     }
+  }
+
+  /// Forward live accepted BLE measurements to dashboard & analysis.
+  void _handleLiveMeasurement(BleDiscMeasurement m) {
+    _dashboardKey.currentState?.addLiveMeasurementFromBle(m);
+    _analysisKey.currentState?.addLiveMeasurementFromBle(m);
   }
 
   List<Widget>? _getAppBarActions() {

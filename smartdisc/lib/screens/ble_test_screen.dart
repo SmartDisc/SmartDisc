@@ -11,7 +11,13 @@ import '../models/ble_disc_measurement.dart';
 /// 2. Measurements will appear in real-time
 /// 3. Press "Disconnect" to stop
 class BleTestScreen extends StatefulWidget {
-  const BleTestScreen({super.key});
+  const BleTestScreen({
+    super.key,
+    this.onMeasurementAccepted,
+  });
+
+  /// Callback for each accepted BLE measurement (after disc ID filtering).
+  final ValueChanged<BleDiscMeasurement>? onMeasurementAccepted;
 
   @override
   State<BleTestScreen> createState() => _BleTestScreenState();
@@ -86,6 +92,8 @@ class _BleTestScreenState extends State<BleTestScreen> {
       setState(() {
         _lastMeasurement = measurement;
       });
+      // Notify listeners (Dashboard, Analysis) about live accepted measurements
+      widget.onMeasurementAccepted?.call(measurement);
     });
 
     // Listen to errors
