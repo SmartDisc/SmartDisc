@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/ble_disc_service.dart';
 import '../services/disc_service.dart';
+import '../services/auth_service.dart';
 import '../models/ble_disc_measurement.dart';
 
 /// Example screen showing how to use BLE service on Windows
@@ -40,6 +41,15 @@ class _BleTestScreenState extends State<BleTestScreen> {
     // Load discs first so the user can select one before connecting
     await _discService.init();
     _syncDiscsFromService();
+
+    // Temporary debug logging for role & discs
+    try {
+      final role = await AuthService().currentUserRole();
+      // ignore: avoid_print
+      print('[BLE] currentUserRole=$role');
+      // ignore: avoid_print
+      print('[BLE] after init: _availableDiscs.length=${_availableDiscs.length}, _selectedDiscId=$_selectedDiscId');
+    } catch (_) {}
 
     // Listen for disc changes so the dropdown updates live without reloads
     _discsListener = () {
@@ -243,7 +253,8 @@ class _BleTestScreenState extends State<BleTestScreen> {
   /// Sync local disc list and keep current selection if possible
   void _syncDiscsFromService() {
     final currentDiscs = List<Map<String, dynamic>>.from(_discService.discs.value);
-    String? newSelected = _selectedDiscId;
+    final beforeSelected = _selectedDiscId;
+    String? newSelected = beforeSelected;
 
     // Keep explicit user selection if it still exists; otherwise clear it.
     final ids = currentDiscs.map((d) => d['id'] as String?).whereType<String>().toList();
@@ -255,6 +266,10 @@ class _BleTestScreenState extends State<BleTestScreen> {
       _availableDiscs = currentDiscs;
       _selectedDiscId = newSelected;
     });
+
+    // Temporary debug logging for BLE disc sync
+    // ignore: avoid_print
+    print('[BLE] _syncDiscsFromService: discs=${currentDiscs.length}, beforeSelected=$beforeSelected, afterSelected=$_selectedDiscId');
 
     // Update BLE filter whenever the effective selection changes.
     // If null, service will safely discard all incoming packets.

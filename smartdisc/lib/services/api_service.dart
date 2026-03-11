@@ -92,6 +92,10 @@ class ApiService {
     }
     final body = jsonDecode(res.body) as Map<String, dynamic>;
     final items = (body['items'] as List).cast<Map<String, dynamic>>();
+    // Temporary debug logging to understand BLE disc loading behavior
+    // (safe to keep; remove or silence in production if too verbose).
+    // ignore: avoid_print
+    print('[DiscService] GET /api/scheiben returned ${items.length} discs: $items');
     return items;
   }
 
