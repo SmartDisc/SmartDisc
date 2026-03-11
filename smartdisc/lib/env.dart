@@ -17,16 +17,22 @@ String _normalizeBaseUrl(String raw) {
 /// - On a physical device, you must use a reachable LAN/VPN IP/hostname.
 const String kDefaultApiBaseUrl = 'http://46.225.217.234/api';
 
+String? _cachedApiBaseUrl;
+
 String get apiBaseUrl {
+  if (_cachedApiBaseUrl != null) return _cachedApiBaseUrl!;
+  
   const fromEnv = String.fromEnvironment('API_BASE', defaultValue: '');
 
   if (fromEnv.trim().isNotEmpty) {
     final url = _normalizeBaseUrl(fromEnv);
     print('[ENV] Using API_BASE from environment: $url');
+    _cachedApiBaseUrl = url;
     return url;
   }
 
   // Fallback to production backend URL.
   print('[ENV] Using default API URL: $kDefaultApiBaseUrl (isAndroid: $isAndroid)');
+  _cachedApiBaseUrl = kDefaultApiBaseUrl;
   return kDefaultApiBaseUrl;
 }
