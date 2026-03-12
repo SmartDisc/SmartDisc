@@ -16,54 +16,61 @@ if ($path === "$prefix/exports/throws" && $method === 'GET') {
     exit;
   }
 
-  $where = ['geloescht = 0'];
+  $where = ['w.geloescht = 0'];
   $params = [];
 
   if (($user['role'] ?? null) === 'trainer') {
     // Trainers see all throws; optional filter by player or disc
     if (!empty($_GET['playerId'])) {
-      $where[] = 'player_id = :player_id';
+      $where[] = 'w.player_id = :player_id';
       $params[':player_id'] = $_GET['playerId'];
     }
   } else {
-    // Players see throws that are either linked to them OR from a disc assigned to them (e.g. unlinked hardware throws)
-    $where[] = "(
-      player_id = :player_id
-      OR (player_id IS NULL AND EXISTS (SELECT 1 FROM disc_assignments da WHERE da.disc_id = wurfe.scheibe_id AND da.player_id = :player_id))
+    // Players see throws from discs assigned to them (same logic as GET /api/wurfe)
+    $where[] = "EXISTS (
+      SELECT 1
+      FROM disc_assignments da
+      JOIN scheiben s ON s.id = da.disc_id
+      WHERE da.player_id = :current_player_id
+        AND (da.disc_id = w.scheibe_id OR s.name = w.scheibe_id)
     )";
-    $params[':player_id'] = $user['id'];
+    $params[':current_player_id'] = $user['id'];
   }
 
-  if (!empty($_GET['discId'])) {
-    $discIdParam = (string) $_GET['discId'];
-    $where[] = "(scheibe_id = :scheibe_id OR EXISTS (SELECT 1 FROM scheiben s WHERE s.id = :scheibe_id AND s.name = wurfe.scheibe_id))";
-    $params[':scheibe_id'] = $discIdParam;
+  // Disc filter: accept discId or scheibe_id. Match throws where scheibe_id equals the param,
+  // or the disc's name when param is id, or the disc's id when param is name (same as Analysis filter).
+  $discParam = trim((string) ($_GET['discId'] ?? $_GET['scheibe_id'] ?? ''));
+  if ($discParam !== '') {
+    $where[] = "(w.scheibe_id = :scheibe_id
+      OR w.scheibe_id = (SELECT s.name FROM scheiben s WHERE s.id = :scheibe_id LIMIT 1)
+      OR w.scheibe_id = (SELECT s.id FROM scheiben s WHERE s.name = :scheibe_id LIMIT 1))";
+    $params[':scheibe_id'] = $discParam;
   }
 
   if (isset($_GET['minHeight']) && is_numeric($_GET['minHeight'])) {
-    $where[] = 'hoehe >= :min_hoehe';
+    $where[] = 'w.hoehe >= :min_hoehe';
     $params[':min_hoehe'] = floatval($_GET['minHeight']);
   }
   if (isset($_GET['maxHeight']) && is_numeric($_GET['maxHeight'])) {
-    $where[] = 'hoehe <= :max_hoehe';
+    $where[] = 'w.hoehe <= :max_hoehe';
     $params[':max_hoehe'] = floatval($_GET['maxHeight']);
   }
 
   if (isset($_GET['minAcc']) && is_numeric($_GET['minAcc'])) {
-    $where[] = 'acceleration_max >= :min_acc';
+    $where[] = 'w.acceleration_max >= :min_acc';
     $params[':min_acc'] = floatval($_GET['minAcc']);
   }
   if (isset($_GET['maxAcc']) && is_numeric($_GET['maxAcc'])) {
-    $where[] = 'acceleration_max <= :max_acc';
+    $where[] = 'w.acceleration_max <= :max_acc';
     $params[':max_acc'] = floatval($_GET['maxAcc']);
   }
 
   if (isset($_GET['minRot']) && is_numeric($_GET['minRot'])) {
-    $where[] = 'rotation >= :min_rot';
+    $where[] = 'w.rotation >= :min_rot';
     $params[':min_rot'] = floatval($_GET['minRot']);
   }
   if (isset($_GET['maxRot']) && is_numeric($_GET['maxRot'])) {
-    $where[] = 'rotation <= :max_rot';
+    $where[] = 'w.rotation <= :max_rot';
     $params[':max_rot'] = floatval($_GET['maxRot']);
   }
 
@@ -71,12 +78,31 @@ if ($path === "$prefix/exports/throws" && $method === 'GET') {
   header('Content-Disposition: attachment; filename="smartdisc_throws.csv"');
   echo "\xEF\xBB\xBF"; // UTF-8 BOM so Excel opens the file correctly
   $out = fopen('php://output', 'w');
-  fputcsv($out, ['id', 'scheibe_id', 'player_id', 'rotation', 'hoehe', 'acceleration_max', 'erstellt_am'], ';');
+  fputcsv($out, ['id', 'scheibe_id', 'disc_name', 'player_id', 'player_name', 'rotation', 'hoehe', 'acceleration_max', 'erstellt_am'], ';');
 
-  $sql = "SELECT id, scheibe_id, player_id, rotation, hoehe, acceleration_max, erstellt_am FROM wurfe WHERE " . implode(' AND ', $where) . " ORDER BY erstellt_am DESC";
+  $sql = "SELECT w.id, w.scheibe_id,
+    COALESCE(sd.name, w.scheibe_id) AS disc_name,
+    w.player_id,
+    TRIM(COALESCE(u.first_name, '') || ' ' || COALESCE(u.last_name, '')) AS player_name,
+    w.rotation, w.hoehe, w.acceleration_max, w.erstellt_am
+    FROM wurfe w
+    LEFT JOIN scheiben sd ON sd.id = w.scheibe_id
+    LEFT JOIN users u ON u.id = w.player_id
+    WHERE " . implode(' AND ', $where) . " ORDER BY w.erstellt_am DESC";
   $stmt = $pdo->prepare($sql);
   $stmt->execute($params);
   while ($row = $stmt->fetch()) {
+    // Format erstellt_am for Excel (avoid ######## and wrong date parsing)
+    if (!empty($row['erstellt_am'])) {
+      $ts = strtotime($row['erstellt_am']);
+      $row['erstellt_am'] = $ts !== false ? date('Y-m-d H:i:s', $ts) : $row['erstellt_am'];
+    }
+    // Ensure numeric columns are plain numbers (no locale/date confusion)
+    foreach (['rotation', 'hoehe', 'acceleration_max'] as $key) {
+      if (isset($row[$key]) && $row[$key] !== null && $row[$key] !== '') {
+        $row[$key] = is_numeric($row[$key]) ? (float) $row[$key] : $row[$key];
+      }
+    }
     fputcsv($out, $row, ';');
   }
   fclose($out);
@@ -95,23 +121,52 @@ if ($path === "$prefix/export.csv" && $method === 'GET') {
   header('Content-Disposition: attachment; filename="smartdisc_throws.csv"');
   echo "\xEF\xBB\xBF"; // UTF-8 BOM so Excel opens the file correctly
   $out = fopen('php://output', 'w');
-  fputcsv($out, ['id', 'scheibe_id', 'player_id', 'rotation', 'hoehe', 'acceleration_max', 'erstellt_am'], ';');
+  fputcsv($out, ['id', 'scheibe_id', 'disc_name', 'player_id', 'player_name', 'rotation', 'hoehe', 'acceleration_max', 'erstellt_am'], ';');
   if (($user['role'] ?? null) === 'trainer') {
-    $stmt = $pdo->query("SELECT id, scheibe_id, player_id, rotation, hoehe, acceleration_max, erstellt_am FROM wurfe WHERE geloescht = 0 ORDER BY erstellt_am DESC");
+    $stmt = $pdo->query("
+      SELECT w.id, w.scheibe_id,
+        COALESCE(sd.name, w.scheibe_id) AS disc_name,
+        w.player_id,
+        TRIM(COALESCE(u.first_name, '') || ' ' || COALESCE(u.last_name, '')) AS player_name,
+        w.rotation, w.hoehe, w.acceleration_max, w.erstellt_am
+      FROM wurfe w
+      LEFT JOIN scheiben sd ON sd.id = w.scheibe_id
+      LEFT JOIN users u ON u.id = w.player_id
+      WHERE w.geloescht = 0
+      ORDER BY w.erstellt_am DESC
+    ");
   } else {
     $stmt = $pdo->prepare("
-      SELECT id, scheibe_id, player_id, rotation, hoehe, acceleration_max, erstellt_am
-      FROM wurfe
-      WHERE geloescht = 0
-        AND (
-          player_id = :player_id
-          OR (player_id IS NULL AND EXISTS (SELECT 1 FROM disc_assignments da WHERE da.disc_id = wurfe.scheibe_id AND da.player_id = :player_id))
+      SELECT w.id, w.scheibe_id,
+        COALESCE(sd.name, w.scheibe_id) AS disc_name,
+        w.player_id,
+        TRIM(COALESCE(u.first_name, '') || ' ' || COALESCE(u.last_name, '')) AS player_name,
+        w.rotation, w.hoehe, w.acceleration_max, w.erstellt_am
+      FROM wurfe w
+      LEFT JOIN scheiben sd ON sd.id = w.scheibe_id
+      LEFT JOIN users u ON u.id = w.player_id
+      WHERE w.geloescht = 0
+        AND EXISTS (
+          SELECT 1
+          FROM disc_assignments da
+          JOIN scheiben s ON s.id = da.disc_id
+          WHERE da.player_id = :player_id
+            AND (da.disc_id = w.scheibe_id OR s.name = w.scheibe_id)
         )
-      ORDER BY erstellt_am DESC
+      ORDER BY w.erstellt_am DESC
     ");
     $stmt->execute([':player_id' => $user['id']]);
   }
   while ($row = $stmt->fetch()) {
+    if (!empty($row['erstellt_am'])) {
+      $ts = strtotime($row['erstellt_am']);
+      $row['erstellt_am'] = $ts !== false ? date('Y-m-d H:i:s', $ts) : $row['erstellt_am'];
+    }
+    foreach (['rotation', 'hoehe', 'acceleration_max'] as $key) {
+      if (isset($row[$key]) && $row[$key] !== null && $row[$key] !== '') {
+        $row[$key] = is_numeric($row[$key]) ? (float) $row[$key] : $row[$key];
+      }
+    }
     fputcsv($out, $row, ';');
   }
   fclose($out);

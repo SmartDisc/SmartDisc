@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
+import 'dart:math' as math;
+import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import '../services/api_service.dart';
@@ -9,6 +11,8 @@ import '../styles/app_font.dart';
 import '../widgets/stat_card.dart';
 import '../models/wurf.dart';
 import '../models/ble_disc_measurement.dart';
+import '../models/ui_throw.dart';
+import '../services/throw_repository.dart';
 import '../utils/responsive.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -33,7 +37,10 @@ class DashboardScreenState extends State<DashboardScreen> {
   final ScrollController _scrollController = ScrollController();
   double _savedScrollOffset = 0;
   bool _shouldRestoreScroll = false;
-  final List<Wurf> _liveWurfe = [];
+  final List<UiThrow> _liveThrows = [];
+  late final ThrowRepository _throwRepository;
+  Timer? _simulationTimer;
+  bool _isSimulating = false;
 
   @override
   void initState() {
@@ -44,6 +51,17 @@ class DashboardScreenState extends State<DashboardScreen> {
     _reload();
     _initDiscs();
     _startAutoRefresh();
+    _throwRepository = ThrowRepository(
+      apiService: api,
+      onStateChanged: (list) {
+        if (!mounted) return;
+        setState(() {
+          _liveThrows
+            ..clear()
+            ..addAll(list);
+        });
+      },
+    );
   }
 
   void _startAutoRefresh() {
@@ -80,6 +98,7 @@ class DashboardScreenState extends State<DashboardScreen> {
   @override
   void dispose() {
     _refreshTimer?.cancel();
+    _simulationTimer?.cancel();
     _scrollController.dispose();
     if (_discsListener != null) {
       _discSvc.discs.removeListener(_discsListener!);
@@ -103,7 +122,7 @@ class DashboardScreenState extends State<DashboardScreen> {
         setState(() {
           _wurfeF = Future.value(wurfeList);
           // Clear live buffer on reload so backend data is the source of truth (no visible duplicates).
-          _liveWurfe.clear();
+          _liveThrows.clear();
           if (newTotal > _totalThrows && _totalThrows > 0) {
             _newDataAvailable = true;
             Future.delayed(const Duration(seconds: 2), () {
@@ -161,7 +180,8 @@ class DashboardScreenState extends State<DashboardScreen> {
               }
               final baseItems = s.data ?? [];
               // Prepend any live throws captured from BLE (not yet persisted or just persisted)
-              final items = [..._liveWurfe, ...baseItems];
+              final liveItems = _liveThrows.map((t) => t.wurf).toList();
+              final items = [...liveItems, ...baseItems];
               final responsive = context.responsive;
               final latest = items.isNotEmpty ? items.first : null;
 
@@ -239,6 +259,24 @@ class DashboardScreenState extends State<DashboardScreen> {
 
                       const SizedBox(height: 28),
 
+                      // Debug: simulation controls (debug builds only)
+                      if (kDebugMode) ...[
+                        Row(
+                          children: [
+                            ElevatedButton(
+                              onPressed: _simulateSingleThrow,
+                              child: const Text('Simulate Throw'),
+                            ),
+                            const SizedBox(width: 12),
+                            ElevatedButton(
+                              onPressed: _isSimulating ? _stopAutoSimulation : _startAutoSimulation,
+                              child: Text(_isSimulating ? 'Stop Auto Simulation' : 'Start Auto Simulation'),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                      ],
+
                       // Section: Latest throws
                       Row(
                         children: [
@@ -286,26 +324,66 @@ class DashboardScreenState extends State<DashboardScreen> {
     if (selectedDisc.isNotEmpty && m.scheibeId != selectedDisc) {
       return;
     }
-    final nowIso = DateTime.now().toUtc().toIso8601String();
-    final wurf = Wurf(
-      id: 'live_${DateTime.now().microsecondsSinceEpoch}',
-      scheibeId: m.scheibeId,
-      rotation: m.rotation,
-      hoehe: m.hoehe,
-      accelerationX: m.accelerationX,
-      accelerationY: m.accelerationY,
-      accelerationZ: m.accelerationZ,
-      accelerationMax: m.accelerationMax,
-      erstelltAm: nowIso,
+    _throwRepository.addBleMeasurement(m);
+  }
+
+  /// Create a fake BLE measurement for debug/testing.
+  BleDiscMeasurement _createFakeMeasurement() {
+    final rnd = math.Random();
+    // Use selected disc if available, otherwise fall back to a generic id.
+    final discId = selectedDisc.isNotEmpty ? selectedDisc : 'DEBUG-DISC-01';
+
+    // Rotation: 3–9 rps
+    final rotation = 3.0 + rnd.nextDouble() * 6.0;
+
+    // Height: 1–5 m
+    final height = 1.0 + rnd.nextDouble() * 4.0;
+
+    // Acceleration components: -2..2 m/s², max magnitude ~9–20 m/s²
+    final ax = -2.0 + rnd.nextDouble() * 4.0;
+    final ay = -2.0 + rnd.nextDouble() * 4.0;
+    final az = 8.0 + rnd.nextDouble() * 6.0; // keep Z roughly gravity-like
+
+    final accelMax = math.sqrt(ax * ax + ay * ay + az * az);
+
+    return BleDiscMeasurement(
+      scheibeId: discId,
+      hoehe: height,
+      rotation: rotation,
+      accelerationX: ax,
+      accelerationY: ay,
+      accelerationZ: az,
+      accelerationMax: accelMax,
     );
-    if (!mounted) return;
-    setState(() {
-      _liveWurfe.insert(0, wurf);
-      // keep list reasonably small
-      if (_liveWurfe.length > 50) {
-        _liveWurfe.removeLast();
-      }
+  }
+
+  void _simulateSingleThrow() {
+    final m = _createFakeMeasurement();
+    addLiveMeasurementFromBle(m);
+  }
+
+  void _startAutoSimulation() {
+    if (_isSimulating) return;
+    _isSimulating = true;
+
+    // Fire one immediately for quick feedback.
+    _simulateSingleThrow();
+
+    _simulationTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+      _simulateSingleThrow();
     });
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  void _stopAutoSimulation() {
+    _simulationTimer?.cancel();
+    _simulationTimer = null;
+    _isSimulating = false;
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   Widget _buildHeroHeader(Responsive responsive) {

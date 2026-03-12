@@ -51,13 +51,7 @@ class BleDiscService {
   /// will be forwarded to the UI and backend.
   String? _activeDiscId;
   
-  /// Batch buffer for measurements (send every 5 seconds)
-  final List<BleDiscMeasurement> _measurementBatch = [];
-  
-  /// Timer for batch sending
-  Timer? _batchTimer;
-  
-  /// Track saved measurements count
+  /// Track saved measurements count (kept for backwards compatibility; updated externally).
   int _savedCount = 0;
   
   /// Stream controller for found devices
@@ -374,9 +368,6 @@ class BleDiscService {
         message: 'Device: ${device.platformName}'
       );
       
-      // Start batch timer (send measurements every 5 seconds)
-      _startBatchTimer();
-      
       return true;
     } catch (e) {
       _errorController.add("Failed to connect to ESP32: $e");
@@ -419,10 +410,6 @@ class BleDiscService {
   /// Disconnect from device
   Future<void> disconnect() async {
     try {
-      // Stop batch timer and send any remaining measurements
-      _stopBatchTimer();
-      await _sendBatch();
-      
       await _notificationSubscription?.cancel();
       _notificationSubscription = null;
       
@@ -555,13 +542,11 @@ class BleDiscService {
       }
       
       // Log successful parse
-      _logRaw('success', 
+      _logRaw(
+        'success',
         title: '✓ Measurement parsed',
-        message: 'Disc #${measurement.scheibeId}: Rot=${measurement.rotation.toStringAsFixed(2)} rps, H=${measurement.hoehe.toStringAsFixed(2)} m'
+        message: 'Disc #${measurement.scheibeId}: Rot=${measurement.rotation.toStringAsFixed(2)} rps, H=${measurement.hoehe.toStringAsFixed(2)} m',
       );
-      
-      // Add to batch (will be sent every 5 seconds)
-      _measurementBatch.add(measurement);
     } catch (e) {
       final errorMsg = "JSON parse error: $e | Raw: $message";
       if (!_errorController.isClosed) {
@@ -574,93 +559,10 @@ class BleDiscService {
     }
   }
   
-  /// Start batch timer (send measurements every 5 seconds)
-  void _startBatchTimer() {
-    _batchTimer?.cancel();
-    _batchTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
-      _sendBatch();
-    });
-    _logRaw('connection', 
-      title: 'Batch timer started',
-      message: 'Sending measurements every 5 seconds'
-    );
-  }
-  
-  /// Stop batch timer
-  void _stopBatchTimer() {
-    _batchTimer?.cancel();
-    _batchTimer = null;
-    _logRaw('connection', title: 'Batch timer stopped');
-  }
-  
-  /// Send accumulated measurements to backend.
-  /// Every accepted BLE packet is stored persistently so data remains visible after refresh or app restart.
-  Future<void> _sendBatch() async {
-    if (_measurementBatch.isEmpty) return;
-    
-    // Copy batch and clear immediately to avoid blocking new measurements
-    final batch = List<BleDiscMeasurement>.from(_measurementBatch);
-    _measurementBatch.clear();
-    
-    _logRaw(
-      'connection',
-      title: 'Sending batch',
-      message: '${batch.length} accepted measurements -> POST /api/wurfe',
-    );
-    
-    int successCount = 0;
-    int failCount = 0;
-    
-    // Send each measurement
-    for (final measurement in batch) {
-      try {
-        _logRaw(
-          'connection',
-          title: 'POST /api/wurfe',
-          message:
-              'Disc=${measurement.scheibeId}, height=${measurement.hoehe.toStringAsFixed(3)}, '
-              'rotation=${measurement.rotation.toStringAsFixed(2)}, '
-              'accelMax=${measurement.accelerationMax?.toStringAsFixed(2) ?? '-'}',
-        );
-
-        await _apiService.createThrow(
-          scheibeId: measurement.scheibeId,
-          rotation: measurement.rotation,
-          height: measurement.hoehe,
-          accelerationX: measurement.accelerationX,
-          accelerationY: measurement.accelerationY,
-          accelerationZ: measurement.accelerationZ,
-          accelerationMax: measurement.accelerationMax,
-        );
-        
-        successCount++;
-        _savedCount++;
-      } catch (e) {
-        failCount++;
-        if (!_errorController.isClosed) {
-          _errorController.add("Failed to save throw to backend: $e");
-        }
-        _logRaw('error', 
-          title: 'Save failed',
-          message: e.toString()
-        );
-      }
-    }
-    
-    // Update saved count
-    if (!_savedCountController.isClosed) {
-      _savedCountController.add(_savedCount);
-    }
-    
-    _logRaw('success', 
-      title: 'Batch complete',
-      message: '$successCount saved, $failCount failed (Total: $_savedCount)'
-    );
-    
-    if (successCount > 0 && !_errorController.isClosed) {
-      _errorController.add("✓ Saved $successCount throws to backend");
-    }
-  }
+  /// Legacy no-op hooks kept for backwards compatibility.
+  void _startBatchTimer() {}
+  void _stopBatchTimer() {}
+  Future<void> _sendBatch() async {}
   
   /// Handle disconnect
   void _handleDisconnect() {

@@ -41,7 +41,10 @@ class ApiService {
     final q = <String, dynamic>{'format': format};
 
     if (!exportAll) {
-      if (discId != null && discId.isNotEmpty) q['discId'] = discId;
+      if (discId != null && discId.isNotEmpty) {
+        q['discId'] = discId;
+        q['scheibe_id'] = discId; // backend accepts both; same as list API
+      }
       if (minHeight != null) q['minHeight'] = minHeight;
       if (maxHeight != null) q['maxHeight'] = maxHeight;
       if (minAcceleration != null) q['minAcc'] = minAcceleration;
