@@ -86,7 +86,7 @@ if ($path === "$prefix/exports/throws" && $method === 'GET') {
     TRIM(COALESCE(u.first_name, '') || ' ' || COALESCE(u.last_name, '')) AS player_name,
     w.rotation, w.hoehe, w.acceleration_max, w.erstellt_am
     FROM wurfe w
-    LEFT JOIN scheiben sd ON sd.id = w.scheibe_id
+    LEFT JOIN scheiben sd ON (sd.id = w.scheibe_id OR sd.name = w.scheibe_id)
     LEFT JOIN users u ON u.id = w.player_id
     WHERE " . implode(' AND ', $where) . " ORDER BY w.erstellt_am DESC";
   $stmt = $pdo->prepare($sql);
@@ -130,7 +130,7 @@ if ($path === "$prefix/export.csv" && $method === 'GET') {
         TRIM(COALESCE(u.first_name, '') || ' ' || COALESCE(u.last_name, '')) AS player_name,
         w.rotation, w.hoehe, w.acceleration_max, w.erstellt_am
       FROM wurfe w
-      LEFT JOIN scheiben sd ON sd.id = w.scheibe_id
+      LEFT JOIN scheiben sd ON (sd.id = w.scheibe_id OR sd.name = w.scheibe_id)
       LEFT JOIN users u ON u.id = w.player_id
       WHERE w.geloescht = 0
       ORDER BY w.erstellt_am DESC
@@ -143,7 +143,7 @@ if ($path === "$prefix/export.csv" && $method === 'GET') {
         TRIM(COALESCE(u.first_name, '') || ' ' || COALESCE(u.last_name, '')) AS player_name,
         w.rotation, w.hoehe, w.acceleration_max, w.erstellt_am
       FROM wurfe w
-      LEFT JOIN scheiben sd ON sd.id = w.scheibe_id
+      LEFT JOIN scheiben sd ON (sd.id = w.scheibe_id OR sd.name = w.scheibe_id)
       LEFT JOIN users u ON u.id = w.player_id
       WHERE w.geloescht = 0
         AND EXISTS (

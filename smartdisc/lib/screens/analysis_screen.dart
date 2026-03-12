@@ -727,6 +727,9 @@ class AnalysisScreenState extends State<AnalysisScreen> {
                                               lineTouchData: LineTouchData(
                                                 enabled: true,
                                                 touchTooltipData: LineTouchTooltipData(
+                                                  fitInsideHorizontally: true,
+                                                  fitInsideVertically: true,
+                                                  tooltipMargin: 8,
                                                   getTooltipColor: (_) => AppColors.textPrimary.withOpacity(0.9),
                                                   tooltipRoundedRadius: 8,
                                                   tooltipPadding: const EdgeInsets.symmetric(
