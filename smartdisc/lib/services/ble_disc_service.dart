@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import '../models/ble_disc_measurement.dart';
 import 'api_service.dart';
@@ -26,6 +27,8 @@ class BleDiscService {
   // ==================== Configuration ====================
   
   /// ESP32 Service UUID - matches your ESP32 configuration
+  /// NOTE: This must exactly match the ESP32 firmware.
+  /// Common SmartDisc/ESP32 examples use this value.
   static const String serviceUuid = "4fafc201-1fb5-459e-8fcc-c5c9c331914b";
   
   /// ESP32 Characteristic UUID for notifications (TX) - matches your ESP32 configuration
@@ -138,69 +141,125 @@ class BleDiscService {
   }
   
   /// Scan for ESP32 devices only
-  /// Filters by device name since Android doesn't reliably advertise service UUIDs
+  /// Uses a two-pass strategy:
+  /// 1) Service-filtered scan (fast, strict)
+  /// 2) Keyword fallback scan (more tolerant when service UUID isn't advertised)
   Future<bool> scanForDevices() async {
     try {
       _connectionStateController.add(BleConnectionState.scanning);
-      
+
       _foundDevices.clear();
+      _foundDevicesController.add(List.from(_foundDevices));
+
       final List<BluetoothDevice> allDevices = [];
-      
-      // Start scanning
-      final subscription = FlutterBluePlus.scanResults.listen((results) {
-        for (var result in results) {
-          // Log all devices for debugging
-          _logRaw('connection', 
-            title: 'Device scanned',
-            message: '${result.device.platformName} (${result.device.remoteId})\n  Services: ${result.advertisementData.serviceUuids}'
+
+      bool isEspDevice(BluetoothDevice device, List<Guid> advertisedServices) {
+        final deviceName = device.platformName.toLowerCase();
+        final lowerServices =
+            advertisedServices.map((s) => s.toString().toLowerCase()).toList();
+        final bool matchesService =
+            lowerServices.contains(serviceUuid.toLowerCase());
+        return deviceName.contains("esp") ||
+            deviceName.contains("smartdisc") ||
+            deviceName.contains("bodenstation") ||
+            matchesService;
+      }
+
+      void addIfEspDevice(BluetoothDevice device, List<Guid> advertisedServices) {
+        if (!allDevices.any((d) => d.remoteId == device.remoteId)) {
+          allDevices.add(device);
+        }
+
+        if (isEspDevice(device, advertisedServices) &&
+            !_foundDevices.any((d) => d.remoteId == device.remoteId)) {
+          _logRaw(
+            'connection',
+            title: '✓ ESP device found',
+            message: device.platformName.isEmpty
+                ? device.remoteId.toString()
+                : device.platformName,
           );
-          
-          // Track all devices
-          if (!allDevices.any((d) => d.remoteId == result.device.remoteId)) {
-            allDevices.add(result.device);
+          _foundDevices.add(device);
+          _foundDevicesController.add(List.from(_foundDevices));
+        }
+      }
+
+      // On native platforms, pre-populate with already-connected system devices.
+      if (!kIsWeb) {
+        try {
+          final knownDevices =
+              await FlutterBluePlus.systemDevices([Guid(serviceUuid)]);
+          for (final device in knownDevices) {
+            addIfEspDevice(device, const []);
           }
-          
-          // Filter: only ESP devices
-          final deviceName = result.device.platformName.toLowerCase();
-          final isESP = deviceName.contains("esp") || 
-                       deviceName.contains("smartdisc") ||
-                       deviceName.contains("bodenstation");
-          
-          if (isESP && !_foundDevices.any((d) => d.remoteId == result.device.remoteId)) {
-            _logRaw('connection', 
-              title: '✓ ESP device found',
-              message: result.device.platformName
-            );
-            _foundDevices.add(result.device);
-            _foundDevicesController.add(List.from(_foundDevices));
-          }
+        } catch (_) {
+          // Non-fatal.
+        }
+      }
+
+      final subscription = FlutterBluePlus.scanResults.listen((results) {
+        for (final result in results) {
+          _logRaw(
+            'connection',
+            title: 'Device scanned',
+            message:
+                '${result.device.platformName} (${result.device.remoteId})\n  Services: ${result.advertisementData.serviceUuids}',
+          );
+
+          addIfEspDevice(result.device, result.advertisementData.serviceUuids);
         }
       });
-      
-      // Start scan (no filters - find everything, filter in code)
+
+      // Ensure no stale scan is running.
+      await FlutterBluePlus.stopScan();
+
+      // Primary scan.
+      // On web, Chrome ORs service-UUID filter with name filters, so including
+      // device names gives the picker a second way to match the ESP32 even when
+      // the service UUID is absent from the advertisement packet.
       await FlutterBluePlus.startScan(
         timeout: scanTimeout,
+        withServices: [Guid(serviceUuid)],
+        withNames: ['Bodenstation-ESP32', 'SmartDisc', 'ESP32'],
+        webOptionalServices: [Guid(serviceUuid)],
       );
-      
-      // Wait for scan to complete
       await Future.delayed(scanTimeout);
       await FlutterBluePlus.stopScan();
+
+      // Keyword fallback (native only – Web Bluetooth does not support keyword filtering).
+      if (_foundDevices.isEmpty && !kIsWeb) {
+        _logRaw(
+          'connection',
+          title: 'Scan fallback',
+          message:
+              'No ESP found with service filter. Retrying with keyword scan.',
+        );
+
+        await FlutterBluePlus.startScan(
+          timeout: scanTimeout,
+          withKeywords: const ['esp', 'smartdisc', 'bodenstation'],
+        );
+        await Future.delayed(scanTimeout);
+        await FlutterBluePlus.stopScan();
+      }
+
       await subscription.cancel();
-      
+
       _connectionStateController.add(BleConnectionState.disconnected);
-      
+
       if (_foundDevices.isEmpty) {
         _errorController.add(
           "No ESP32 device found.\n"
           "Scanned ${allDevices.length} device(s).\n"
-          "Ensure ESP32 name contains 'ESP', 'SmartDisc', or 'Bodenstation'."
+          "Try moving closer, waiting 5-10s, then scanning again."
         );
         return false;
       }
-      
-      _logRaw('connection', 
+
+      _logRaw(
+        'connection',
         title: 'Scan complete',
-        message: 'Found ${_foundDevices.length} ESP device(s)'
+        message: 'Found ${_foundDevices.length} ESP device(s)',
       );
       return true;
     } catch (e) {
@@ -221,7 +280,10 @@ class BleDiscService {
       _connectionStateController.add(BleConnectionState.connecting);
       
       // Connect (Windows allows only ONE connection at a time)
-      await device.connect(timeout: const Duration(seconds: 15));
+      await device.connect(
+        license: License.free,
+        timeout: const Duration(seconds: 15),
+      );
       _connectedDevice = device;
       
       // Connected successfully
@@ -319,20 +381,52 @@ class BleDiscService {
       }
       
       // Enable notifications (CRITICAL)
+      // Some ESP32 + browser/adapter combinations need longer CCCD write time
+      // or a second try after fresh service discovery.
       try {
-        // Enable notifications
-        await notifyChar.setNotifyValue(true);
-        
-        // Wait a bit to ensure notifications are enabled
-        await Future.delayed(const Duration(milliseconds: 300));
-        
-        _logRaw('connection', 
-          title: 'Notifications enabled',
-          message: 'Characteristic: $characteristicUuid'
+        await notifyChar.setNotifyValue(true, timeout: 30);
+      } catch (firstError) {
+        _logRaw(
+          'error',
+          title: 'Notify enable attempt 1 failed',
+          message: firstError.toString(),
         );
-      } catch (e) {
-        throw Exception("Failed to enable notifications: $e");
+
+        await Future.delayed(const Duration(milliseconds: 700));
+
+        // Retry after rediscovery to refresh stale characteristic handles.
+        try {
+          final retryServices = await device.discoverServices();
+          BluetoothCharacteristic? retryNotifyChar;
+          for (final service in retryServices) {
+            for (final char in service.characteristics) {
+              if (char.uuid.toString().toLowerCase() ==
+                  characteristicUuid.toLowerCase()) {
+                retryNotifyChar = char;
+                break;
+              }
+            }
+            if (retryNotifyChar != null) break;
+          }
+          if (retryNotifyChar != null) {
+            notifyChar = retryNotifyChar;
+          }
+
+          await notifyChar.setNotifyValue(true, timeout: 30);
+        } catch (secondError) {
+          throw Exception(
+            "Failed to enable notifications after retry: $secondError (first attempt: $firstError)",
+          );
+        }
       }
+
+      // Wait a bit to ensure notifications are enabled
+      await Future.delayed(const Duration(milliseconds: 300));
+
+      _logRaw('connection', 
+        title: 'Notifications enabled',
+        message: 'Characteristic: $characteristicUuid'
+      );
       
       // Subscribe to notifications - use onValueReceived for flutter_blue_plus
       _logRaw('connection', title: 'Setting up notification listener');
